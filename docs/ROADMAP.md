@@ -159,3 +159,40 @@ This roadmap lists every planned or potential capability for a full-spectrum QR 
 - Add integration tests for scanner
 - Add device lab testing checklist
 - Add automated lighthouse reports
+
+## Design and UX
+
+- Add UI theme system with selectable visual styles
+- Add quick-start flows for top payloads
+- Add guided wizards for Wi-Fi, vCard, and events
+- Add real-time success/error validation per field
+- Add drag-and-drop logo positioning
+- Add layout presets for print vs. screen
+- Add first-run onboarding tour
+- Add keyboard shortcut palette
+- Add inline help panels and microcopy improvements
+- Add typography and spacing scale tokens
+- Add high-contrast accessibility theme
+
+## Printing and production
+
+- Add print-ready label templates
+- Add sticker sheet exports (Avery formats)
+- Add crop marks and bleed settings
+- Add batch print queue with preview
+- Add QR proofing checklist export
+
+## Data and governance
+
+- Add QR lifecycle states (draft, approved, archived)
+- Add expiration dates with warnings
+- Add QR rotation workflows for short links
+- Add ownership and stewardship metadata
+- Add data residency options for stored payloads
+
+## Enterprise
+
+- Add SSO and SAML support
+- Add SCIM user provisioning
+- Add enterprise audit exports
+- Add IP allowlists and network restrictions
