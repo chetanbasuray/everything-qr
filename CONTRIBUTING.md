@@ -20,4 +20,4 @@ npm run dev
 - Keep the UI responsive and accessible.
 - Prefer TypeScript-first additions.
 - Update `docs/QR_TYPES.md` if you add a payload.
-- Use conventional commits (e.g., `feat: add upi payload`) so release automation can version correctly.
+- Use clear, consistent commit messages for easier history navigation.

@@ -38,10 +38,6 @@ npm run dev
 
 This project is intended to deploy on Vercel after GitHub CI checks pass. See `docs/DEPLOYMENT.md` for the current CI/deploy notes.
 
-## Release automation
-
-Release Please handles version bumps on merges to `main`, using conventional commit messages to determine the next version.
-
 ## Naming
 
 We plan to host this on `qrstudio.simplifymylife.app`. Candidate names are tracked in `docs/NAMING.md`.
