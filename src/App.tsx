@@ -15,6 +15,11 @@ type ScanResult = {
   timestamp: string
 }
 
+type CameraOption = {
+  id: string
+  label: string
+}
+
 const formatTimestamp = (value: number) =>
   new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
@@ -48,6 +53,8 @@ function App() {
   const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>(
     'environment'
   )
+  const [availableCameras, setAvailableCameras] = useState<CameraOption[]>([])
+  const [activeCameraId, setActiveCameraId] = useState<string | null>(null)
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const scannerRef = useRef<QrScanner | null>(null)
@@ -113,6 +120,22 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!isCameraOn) return
+    QrScanner.listCameras(true)
+      .then((cameras) => {
+        const list = cameras.map((camera) => ({
+          id: camera.id,
+          label: camera.label || `Camera ${camera.id.slice(0, 4)}`,
+        }))
+        setAvailableCameras(list)
+        if (!activeCameraId && list.length > 0) {
+          setActiveCameraId(list[0].id)
+        }
+      })
+      .catch(() => setAvailableCameras([]))
+  }, [isCameraOn, activeCameraId])
+
+  useEffect(() => {
     if (!isCameraOn || !videoRef.current) {
       scannerRef.current?.stop()
       setScanStatus('paused')
@@ -142,9 +165,13 @@ function App() {
 
     scannerRef.current = scanner
 
+    const selectedCamera = activeCameraId ?? cameraFacing
+
     scanner
-      .setCamera(cameraFacing)
+      .setCamera(selectedCamera)
       .then(() => scanner.start())
+      .then(() => setScanStatus('scanning'))
+      .catch(() => scanner.start())
       .then(() => setScanStatus('scanning'))
       .catch((error: Error) => {
         setScanError(error.message)
@@ -156,7 +183,7 @@ function App() {
       scanner.destroy()
       scannerRef.current = null
     }
-  }, [isCameraOn, cameraFacing])
+  }, [isCameraOn, cameraFacing, activeCameraId])
 
   const updateValue = (id: string, value: string) => {
     setValues((prev) => ({
@@ -219,29 +246,29 @@ function App() {
           </nav>
         </div>
         <h1>
-          Every QR move, in one place.
-          <span>Generate, scan, and prototype any QR payload.</span>
+          The studio for every QR workflow.
+          <span>Generate, scan, style, and ship QR experiences fast.</span>
         </h1>
         <div className="hero-grid">
           <div className="hero-card">
             <h3>Generator</h3>
             <p>
-              Produce QR codes for links, Wi-Fi, contacts, events, payments, and
-              more with instant previews.
+              Build QR codes for links, Wi-Fi, contacts, events, and payments
+              with instant previews and export-ready assets.
             </p>
           </div>
           <div className="hero-card">
             <h3>Scanner</h3>
             <p>
-              Use your camera or upload an image. Results are logged with
-              timestamps for easy copying.
+              Use your camera or upload an image. Scan history is timestamped
+              and ready to copy or export.
             </p>
           </div>
           <div className="hero-card">
-            <h3>Extensible</h3>
+            <h3>Studio Ready</h3>
             <p>
-              Built for growth. Add more payload formats, styling controls, and
-              automation flows as new issues land.
+              Designed for rapid iteration with clear forms, payload insights,
+              and a roadmap that welcomes contributors.
             </p>
           </div>
         </div>
@@ -419,7 +446,7 @@ function App() {
             <div className="panel-head">
               <div>
                 <h2>Scan QR Codes</h2>
-                <p>Use your camera or upload an image file.</p>
+                <p>Open your camera or upload an image file to scan.</p>
               </div>
               <div className="panel-actions">
                 <button
@@ -445,7 +472,7 @@ function App() {
             <div className="panel-body">
               <div className="scanner">
                 <div className="scanner-stage">
-                  <video ref={videoRef} muted playsInline />
+                  <video ref={videoRef} muted playsInline autoPlay />
                   {hasCamera === false && (
                     <div className="notice">No camera detected.</div>
                   )}
@@ -455,7 +482,28 @@ function App() {
                   {scanStatus === 'paused' && (
                     <div className="notice">Camera paused.</div>
                   )}
+                  {scanStatus === 'error' && (
+                    <div className="notice error">
+                      Camera failed to start. Make sure the site has camera
+                      permissions and is served over HTTPS.
+                    </div>
+                  )}
                 </div>
+                {availableCameras.length > 1 && (
+                  <label className="field">
+                    <span>Camera</span>
+                    <select
+                      value={activeCameraId ?? ''}
+                      onChange={(event) => setActiveCameraId(event.target.value)}
+                    >
+                      {availableCameras.map((camera) => (
+                        <option key={camera.id} value={camera.id}>
+                          {camera.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <div className="scanner-actions">
                   <button
                     type="button"
@@ -537,7 +585,6 @@ function App() {
       <footer className="footer">
         <div>
           <strong>QR Studio</strong>
-          <span>qrstudio.simplifymylife.app</span>
         </div>
         <p>
           Add new QR types and scanner features via the roadmap in the docs.
