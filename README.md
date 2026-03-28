@@ -32,12 +32,12 @@ npm run dev
 ## Documentation
 
 - QR payload catalog: `docs/QR_TYPES.md`
-- Roadmap and future issues: `docs/FUTURE_PLANS.md`
+- Product roadmap: `docs/ROADMAP.md`
 
 ## Deployment
 
 This project is intended to deploy on Vercel after GitHub CI checks pass. See `docs/DEPLOYMENT.md` for the current CI/deploy notes.
 
-## Naming
+## URL
 
-We plan to host this on `qrstudio.simplifymylife.app`. Candidate names are tracked in `docs/NAMING.md`.
+Official URL: `qrstudio.simplifymylife.app`
