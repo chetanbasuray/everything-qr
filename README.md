@@ -1,0 +1,47 @@
+# QR Studio
+
+A responsive, TypeScript-first QR hub that generates and scans common QR payload formats from one interface.
+
+## What it does
+
+- Generate QR codes for links, Wi-Fi, contacts, events, payments, and more.
+- Scan QR codes using camera or image uploads.
+- Export PNGs with adjustable size, margin, and error correction.
+- Track a roadmap of upcoming payload formats and scanner features.
+
+## Tech stack
+
+- Vite + React + TypeScript
+- `qrcode` for generation
+- `qr-scanner` for camera and image scanning
+
+## Local development
+
+```bash
+npm install
+npm run dev
+```
+
+## Scripts
+
+- `npm run dev` - Start local dev server
+- `npm run build` - Production build
+- `npm run preview` - Preview build locally
+- `npm run typecheck` - TypeScript checks
+
+## Documentation
+
+- QR payload catalog: `docs/QR_TYPES.md`
+- Roadmap and future issues: `docs/FUTURE_PLANS.md`
+
+## Deployment
+
+This project is intended to deploy on Vercel after GitHub CI checks pass. See `docs/DEPLOYMENT.md` for the current CI/deploy notes.
+
+## Release automation
+
+Release Please handles version bumps on merges to `main`, using conventional commit messages to determine the next version.
+
+## Naming
+
+We plan to host this on `qrstudio.simplifymylife.app`. Candidate names are tracked in `docs/NAMING.md`.
