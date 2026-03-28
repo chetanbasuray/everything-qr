@@ -1,9 +1,0 @@
-{
-  "release-type": "node",
-  "packages": {
-    ".": {
-      "package-name": "qrstudio"
-    }
-  },
-  "pull-request-title-pattern": "chore: release ${version}"
-}
