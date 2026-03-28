@@ -246,9 +246,23 @@ function App() {
           </nav>
         </div>
         <h1>
-          The studio for every QR workflow.
-          <span>Generate, scan, style, and ship QR experiences fast.</span>
+          The QR Studio for every workflow.
+          <span>Generate, scan, and ship QR experiences in minutes.</span>
         </h1>
+        <div className="hero-stats">
+          <div>
+            <strong>12+</strong>
+            <span>Payload types</span>
+          </div>
+          <div>
+            <strong>Instant</strong>
+            <span>Live previews</span>
+          </div>
+          <div>
+            <strong>Camera</strong>
+            <span>Real-time scans</span>
+          </div>
+        </div>
         <div className="hero-grid">
           <div className="hero-card">
             <h3>Generator</h3>
