@@ -88,7 +88,7 @@ function App() {
       margin,
       width: size,
     })
-      .then((url) => {
+      .then((url: string) => {
         if (!cancelled) {
           setQrDataUrl(url)
           setQrError('')
