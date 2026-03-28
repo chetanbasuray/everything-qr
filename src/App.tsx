@@ -537,7 +537,6 @@ function App() {
       <footer className="footer">
         <div>
           <strong>QR Studio</strong>
-          <span>qrstudio.simplifymylife.app</span>
         </div>
         <p>
           Add new QR types and scanner features via the roadmap in the docs.
