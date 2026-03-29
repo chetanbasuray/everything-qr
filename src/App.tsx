@@ -1,38 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import QRCode from 'qrcode'
-import QrScanner from 'qr-scanner'
-import qrWorkerPath from 'qr-scanner/qr-scanner-worker.min.js?url'
+import QRCodeStyling from 'qr-code-styling'
+import type {
+  CornerDotType,
+  CornerSquareType,
+  DotType,
+  Options,
+} from 'qr-code-styling'
 import { buildPayload, getDefaultValues, qrTypes } from './lib/qrTypes'
-
-QrScanner.WORKER_PATH = qrWorkerPath
+import StyleController, { type StyleValues } from './components/StyleController'
+import ActionCard from './components/ActionCard'
 
 const errorLevels = ['L', 'M', 'Q', 'H'] as const
-
-type ScanStatus = 'idle' | 'starting' | 'scanning' | 'paused' | 'error'
-
-type ScanResult = {
-  data: string
-  timestamp: string
-}
-
-type CameraOption = {
-  id: string
-  label: string
-}
-
-const formatTimestamp = (value: number) =>
-  new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(value)
 
 const createDownloadName = (typeId: string) =>
   `everything-qr-${typeId}-${new Date().toISOString().slice(0, 10)}.png`
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'generate' | 'scan' | 'library'>(
+  const [activeTab, setActiveTab] = useState<'generate' | 'scan' | 'history'>(
     'generate'
   )
+  const [navCollapsed, setNavCollapsed] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
   const [qrTypeId, setQrTypeId] = useState(qrTypes[0].id)
   const [values, setValues] = useState<Record<string, string>>(() =>
     getDefaultValues(qrTypes[0].id)
@@ -42,23 +30,17 @@ function App() {
   const [errorLevel, setErrorLevel] = useState<(typeof errorLevels)[number]>(
     'M'
   )
-  const [qrDataUrl, setQrDataUrl] = useState('')
-  const [qrError, setQrError] = useState('')
-
-  const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
-  const [scanError, setScanError] = useState('')
-  const [scanResults, setScanResults] = useState<ScanResult[]>([])
-  const [isCameraOn, setIsCameraOn] = useState(false)
-  const [hasCamera, setHasCamera] = useState<boolean | null>(null)
-  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>(
-    'environment'
-  )
-  const [availableCameras, setAvailableCameras] = useState<CameraOption[]>([])
-  const [activeCameraId, setActiveCameraId] = useState<string | null>(null)
-
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const scannerRef = useRef<QrScanner | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [darkColor, setDarkColor] = useState('#0f172a')
+  const [lightColor, setLightColor] = useState('#ffffff')
+  const [moduleStyle, setModuleStyle] = useState<DotType>('square')
+  const [cornerStyle, setCornerStyle] = useState<CornerSquareType>('square')
+  const [eyeStyle, setEyeStyle] = useState<CornerDotType>('square')
+  const qrCanvasRef = useRef<HTMLDivElement | null>(null)
+  const qrStylingRef = useRef<QRCodeStyling | null>(null)
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
+  const [historyItems, setHistoryItems] = useState<
+    { id: string; payload: string; dataUrl: string; createdAt: number }[]
+  >([])
 
   const selectedType = useMemo(
     () => qrTypes.find((type) => type.id === qrTypeId) ?? qrTypes[0],
@@ -79,111 +61,146 @@ function App() {
   )
 
   useEffect(() => {
+    const storedTheme = window.localStorage.getItem('qrstudio-theme')
+    if (storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'system') {
+      setTheme(storedTheme)
+    }
+  }, [])
+
+  useEffect(() => {
+    const root = document.documentElement
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)')
+    const applyTheme = (next: 'light' | 'dark' | 'system') => {
+      if (next === 'system') {
+        root.dataset.theme = prefersDark.matches ? 'dark' : 'light'
+      } else {
+        root.dataset.theme = next
+      }
+    }
+
+    applyTheme(theme)
+    window.localStorage.setItem('qrstudio-theme', theme)
+
+    const listener = (event: MediaQueryListEvent) => {
+      if (theme === 'system') {
+        root.dataset.theme = event.matches ? 'dark' : 'light'
+      }
+    }
+
+    prefersDark.addEventListener('change', listener)
+    return () => prefersDark.removeEventListener('change', listener)
+  }, [theme])
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem('qrstudio-history')
+    if (!stored) return
+    try {
+      const parsed = JSON.parse(stored) as {
+        id: string
+        payload: string
+        dataUrl: string
+        createdAt: number
+      }[]
+      setHistoryItems(parsed)
+    } catch (error) {
+      setHistoryItems([])
+    }
+  }, [])
+
+  useEffect(() => {
     setValues(getDefaultValues(qrTypeId))
   }, [qrTypeId])
 
   useEffect(() => {
-    let cancelled = false
+    if (!qrCanvasRef.current) return
+
     if (!payload) {
-      setQrDataUrl('')
-      setQrError('')
+      qrCanvasRef.current.innerHTML = ''
       return
     }
 
-    QRCode.toDataURL(payload, {
-      errorCorrectionLevel: errorLevel,
-      margin,
+    const options: Partial<Options> = {
       width: size,
-    })
-      .then((url: string) => {
-        if (!cancelled) {
-          setQrDataUrl(url)
-          setQrError('')
-        }
-      })
-      .catch((error: Error) => {
-        if (!cancelled) {
-          setQrError(error.message)
-          setQrDataUrl('')
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [payload, size, margin, errorLevel])
-
-  useEffect(() => {
-    QrScanner.hasCamera()
-      .then((result) => setHasCamera(result))
-      .catch(() => setHasCamera(false))
-  }, [])
-
-  useEffect(() => {
-    if (!isCameraOn) return
-    QrScanner.listCameras(true)
-      .then((cameras) => {
-        const list = cameras.map((camera) => ({
-          id: camera.id,
-          label: camera.label || `Camera ${camera.id.slice(0, 4)}`,
-        }))
-        setAvailableCameras(list)
-        if (!activeCameraId && list.length > 0) {
-          setActiveCameraId(list[0].id)
-        }
-      })
-      .catch(() => setAvailableCameras([]))
-  }, [isCameraOn, activeCameraId])
-
-  useEffect(() => {
-    if (!isCameraOn || !videoRef.current) {
-      scannerRef.current?.stop()
-      setScanStatus('paused')
-      return
-    }
-
-    setScanStatus('starting')
-    setScanError('')
-
-    const scanner = new QrScanner(
-      videoRef.current,
-      (result) => {
-        setScanResults((prev) => [
-          {
-            data: result.data,
-            timestamp: formatTimestamp(Date.now()),
-          },
-          ...prev,
-        ])
+      height: size,
+      type: 'svg' as const,
+      data: payload,
+      margin,
+      qrOptions: {
+        errorCorrectionLevel: errorLevel,
       },
-      {
-        highlightScanRegion: true,
-        highlightCodeOutline: true,
-        maxScansPerSecond: 6,
-      }
-    )
-
-    scannerRef.current = scanner
-
-    const selectedCamera = activeCameraId ?? cameraFacing
-
-    scanner
-      .setCamera(selectedCamera)
-      .then(() => scanner.start())
-      .then(() => setScanStatus('scanning'))
-      .catch(() => scanner.start())
-      .then(() => setScanStatus('scanning'))
-      .catch((error: Error) => {
-        setScanError(error.message)
-        setScanStatus('error')
-      })
-
-    return () => {
-      scanner.stop()
-      scanner.destroy()
-      scannerRef.current = null
+      dotsOptions: {
+        color: darkColor,
+        type: moduleStyle,
+      },
+      cornersSquareOptions: {
+        color: darkColor,
+        type: cornerStyle,
+      },
+      cornersDotOptions: {
+        color: darkColor,
+        type: eyeStyle,
+      },
+      backgroundOptions: {
+        color: lightColor,
+      },
     }
-  }, [isCameraOn, cameraFacing, activeCameraId])
+
+    if (!qrStylingRef.current) {
+      qrStylingRef.current = new QRCodeStyling(options)
+    } else {
+      qrStylingRef.current.update(options)
+    }
+
+    qrCanvasRef.current.innerHTML = ''
+    qrStylingRef.current.append(qrCanvasRef.current)
+  }, [
+    payload,
+    size,
+    margin,
+    errorLevel,
+    darkColor,
+    lightColor,
+    moduleStyle,
+    cornerStyle,
+    eyeStyle,
+  ])
+
+  useEffect(() => {
+    if (!payload || !qrStylingRef.current) return
+    const timer = window.setTimeout(async () => {
+      try {
+        const raw = await qrStylingRef.current?.getRawData('png')
+        if (!raw) return
+        const blob =
+          raw instanceof Blob
+            ? raw
+            : new Blob([raw as unknown as ArrayBuffer], { type: 'image/png' })
+        const reader = new FileReader()
+        reader.onload = () => {
+          const dataUrl = String(reader.result || '')
+          setHistoryItems((prev) => {
+            if (!dataUrl) return prev
+            const nextItem = {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              payload,
+              dataUrl,
+              createdAt: Date.now(),
+            }
+            const merged = [nextItem, ...prev.filter((item) => item.payload !== payload)]
+            const trimmed = merged.slice(0, 12)
+            window.localStorage.setItem('qrstudio-history', JSON.stringify(trimmed))
+            return trimmed
+          })
+        }
+        reader.readAsDataURL(blob)
+      } catch (error) {
+        // ignore history errors
+      }
+    }, 800)
+
+    return () => window.clearTimeout(timer)
+  }, [payload, moduleStyle, cornerStyle, eyeStyle, darkColor, lightColor])
+
 
   const updateValue = (id: string, value: string) => {
     setValues((prev) => ({
@@ -192,28 +209,51 @@ function App() {
     }))
   }
 
-  const handleScanImage = async (file: File) => {
-    setScanError('')
+  const handleCopy = async () => {
+    if (!qrStylingRef.current || !payload) return
     try {
-      const result = await QrScanner.scanImage(file, {
-        returnDetailedScanResult: true,
-      })
-      setScanResults((prev) => [
-        {
-          data: result.data,
-          timestamp: formatTimestamp(Date.now()),
-        },
-        ...prev,
-      ])
+      const raw = await qrStylingRef.current.getRawData('png')
+      if (!raw) return
+      const blob =
+        raw instanceof Blob
+          ? raw
+          : new Blob([raw as unknown as ArrayBuffer], { type: 'image/png' })
+      if (navigator.clipboard && 'write' in navigator.clipboard) {
+        const item = new ClipboardItem({ 'image/png': blob })
+        await navigator.clipboard.write([item])
+        setCopyStatus('copied')
+        window.setTimeout(() => setCopyStatus('idle'), 1500)
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to scan.'
-      setScanError(message)
+      setCopyStatus('idle')
     }
   }
 
-  const resetScanner = () => {
-    setScanResults([])
-    setScanError('')
+  const styleValues: StyleValues = {
+    size,
+    margin,
+    errorLevel,
+    darkColor,
+    lightColor,
+    moduleStyle,
+    cornerStyle,
+    eyeStyle,
+  }
+
+  const handleStyleChange = (next: Partial<StyleValues>) => {
+    if (next.size !== undefined) setSize(next.size)
+    if (next.margin !== undefined) setMargin(next.margin)
+    if (next.errorLevel !== undefined) setErrorLevel(next.errorLevel)
+    if (next.darkColor !== undefined) setDarkColor(next.darkColor)
+    if (next.lightColor !== undefined) setLightColor(next.lightColor)
+    if (next.moduleStyle !== undefined) setModuleStyle(next.moduleStyle)
+    if (next.cornerStyle !== undefined) setCornerStyle(next.cornerStyle)
+    if (next.eyeStyle !== undefined) setEyeStyle(next.eyeStyle)
+  }
+
+  const clearHistory = () => {
+    setHistoryItems([])
+    window.localStorage.removeItem('qrstudio-history')
   }
 
   return (
@@ -223,400 +263,332 @@ function App() {
           <div className="badge">
             <span className="mark" aria-hidden="true">
               <svg viewBox="0 0 64 64" role="img" aria-label="QR Studio icon">
-                <rect width="64" height="64" rx="14" fill="#111111" />
-                <rect x="10" y="10" width="16" height="16" rx="3" fill="#ff7a18" />
-                <rect x="38" y="10" width="16" height="16" rx="3" fill="#ff7a18" />
-                <rect x="10" y="38" width="16" height="16" rx="3" fill="#ff7a18" />
+                <rect width="64" height="64" rx="14" fill="#0f172a" />
+                <rect x="10" y="10" width="16" height="16" rx="3" fill="#1d4ed8" />
+                <rect x="38" y="10" width="16" height="16" rx="3" fill="#1d4ed8" />
+                <rect x="10" y="38" width="16" height="16" rx="3" fill="#1d4ed8" />
                 <path
                   d="M32 24h8v16h-4v6h-4V24zm8 22h6v6h-6v-6z"
-                  fill="#fff6ea"
+                  fill="#e2e8f0"
                 />
               </svg>
             </span>
             QR Studio
           </div>
-          <nav className="tabs">
-            <button
-              type="button"
-              className={activeTab === 'generate' ? 'active' : ''}
-              onClick={() => setActiveTab('generate')}
-            >
-              Generate
-            </button>
-            <button
-              type="button"
-              className={activeTab === 'scan' ? 'active' : ''}
-              onClick={() => setActiveTab('scan')}
-            >
-              Scan
-            </button>
-            <button
-              type="button"
-              className={activeTab === 'library' ? 'active' : ''}
-              onClick={() => setActiveTab('library')}
-            >
-              Type Library
-            </button>
-          </nav>
-        </div>
-        <h1>
-          The QR Studio for every workflow.
-          <span>Generate, scan, and ship QR experiences in minutes.</span>
-        </h1>
-        <div className="hero-stats">
-          <div>
-            <strong>12+</strong>
-            <span>Payload types</span>
-          </div>
-          <div>
-            <strong>Instant</strong>
-            <span>Live previews</span>
-          </div>
-          <div>
-            <strong>Camera</strong>
-            <span>Real-time scans</span>
-          </div>
-        </div>
-        <div className="hero-grid">
-          <div className="hero-card">
-            <h3>Generator</h3>
-            <p>
-              Build QR codes for links, Wi-Fi, contacts, events, and payments
-              with instant previews and export-ready assets.
-            </p>
-          </div>
-          <div className="hero-card">
-            <h3>Scanner</h3>
-            <p>
-              Use your camera or upload an image. Scan history is timestamped
-              and ready to copy or export.
-            </p>
-          </div>
-          <div className="hero-card">
-            <h3>Studio Ready</h3>
-            <p>
-              Designed for rapid iteration with clear forms, payload insights,
-              and a roadmap that welcomes contributors.
-            </p>
-          </div>
         </div>
       </header>
 
       <main className="main">
-        {activeTab === 'generate' && (
-          <section className="panel">
-            <div className="panel-head">
-              <div>
-                <h2>Generate QR Codes</h2>
-                <p>
-                  Choose a QR type, fill the fields, and export a ready-to-use
-                  image.
-                </p>
-              </div>
-              <div className="panel-actions">
-                <label className="field">
-                  <span>Type</span>
-                  <select
-                    value={qrTypeId}
-                    onChange={(event) => setQrTypeId(event.target.value)}
-                  >
-                    {qrTypes.map((type) => (
-                      <option key={type.id} value={type.id}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-            <div className="panel-body">
-              <div className="form">
-                {selectedType.fields.map((field) => (
-                  <label key={field.id} className="field">
-                    <span>
-                      {field.label}
-                      {field.required ? <em>Required</em> : null}
-                    </span>
-                    {field.type === 'textarea' ? (
-                      <textarea
-                        value={values[field.id] || ''}
-                        placeholder={field.placeholder}
-                        onChange={(event) =>
-                          updateValue(field.id, event.target.value)
-                        }
-                      />
-                    ) : field.type === 'select' ? (
-                      <select
-                        value={values[field.id] || ''}
-                        onChange={(event) =>
-                          updateValue(field.id, event.target.value)
-                        }
-                      >
-                        {field.options?.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    ) : field.type === 'checkbox' ? (
-                      <button
-                        type="button"
-                        className={values[field.id] === 'true' ? 'toggle active' : 'toggle'}
-                        onClick={() =>
-                          updateValue(
-                            field.id,
-                            values[field.id] === 'true' ? 'false' : 'true'
-                          )
-                        }
-                      >
-                        {values[field.id] === 'true' ? 'Yes' : 'No'}
-                      </button>
-                    ) : (
-                      <input
-                        type={field.type}
-                        value={values[field.id] || ''}
-                        placeholder={field.placeholder}
-                        onChange={(event) =>
-                          updateValue(field.id, event.target.value)
-                        }
-                      />
-                    )}
-                  </label>
-                ))}
-
-                <div className="row">
-                  <label className="field">
-                    <span>Size (px)</span>
-                    <input
-                      type="number"
-                      min={180}
-                      max={720}
-                      value={size}
-                      onChange={(event) => setSize(Number(event.target.value))}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Margin</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={8}
-                      value={margin}
-                      onChange={(event) => setMargin(Number(event.target.value))}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Error Correction</span>
-                    <select
-                      value={errorLevel}
-                      onChange={(event) =>
-                        setErrorLevel(event.target.value as typeof errorLevels[number])
-                      }
-                    >
-                      {errorLevels.map((level) => (
-                        <option key={level} value={level}>
-                          {level}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-
-              <div className="preview">
-                <div className="preview-card">
-                  <div className="preview-header">
-                    <div>
-                      <h3>Preview</h3>
-                      <p>Payload: {payload ? payload.slice(0, 64) : '—'}</p>
-                    </div>
-                    {qrDataUrl ? (
-                      <a
-                        className="button"
-                        href={qrDataUrl}
-                        download={createDownloadName(qrTypeId)}
-                      >
-                        Download PNG
-                      </a>
-                    ) : (
-                      <button className="button" type="button" disabled>
-                        Download PNG
-                      </button>
-                    )}
-                  </div>
-                  {missingRequired.length > 0 ? (
-                    <div className="notice">
-                      Fill the required fields to generate a QR.
-                    </div>
-                  ) : qrError ? (
-                    <div className="notice error">{qrError}</div>
-                  ) : qrDataUrl ? (
-                    <img src={qrDataUrl} alt="Generated QR" />
+        <div className="layout">
+          <aside className={navCollapsed ? 'nav-rail collapsed' : 'nav-rail'}>
+            <button
+              type="button"
+              className="rail-toggle"
+              onClick={() => setNavCollapsed((prev) => !prev)}
+              aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+            >
+              <span />
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'generate' ? 'rail-item active' : 'rail-item'}
+              onClick={() => setActiveTab('generate')}
+              aria-label="Generate"
+            >
+              <span className="rail-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <rect x="3" y="3" width="7" height="7" rx="2" />
+                  <rect x="14" y="3" width="7" height="7" rx="2" />
+                  <rect x="3" y="14" width="7" height="7" rx="2" />
+                  <path d="M14 14h7v7h-7z" />
+                </svg>
+              </span>
+              <span className="rail-label">Generate</span>
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'scan' ? 'rail-item active' : 'rail-item'}
+              onClick={() => setActiveTab('scan')}
+              aria-label="Scan"
+            >
+              <span className="rail-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M4 8V5h3M20 8V5h-3M4 16v3h3M20 16v3h-3" />
+                  <rect x="7" y="9" width="10" height="6" rx="2" />
+                </svg>
+              </span>
+              <span className="rail-label">Scan</span>
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'history' ? 'rail-item active' : 'rail-item'}
+              onClick={() => setActiveTab('history')}
+              aria-label="History"
+            >
+              <span className="rail-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 6v6l4 2" />
+                  <path d="M3 12a9 9 0 1 0 3-6" />
+                </svg>
+              </span>
+              <span className="rail-label">History</span>
+            </button>
+            <button
+              type="button"
+              className="rail-item rail-theme"
+              onClick={() =>
+                setTheme((prev) =>
+                  prev === 'light' ? 'dark' : prev === 'dark' ? 'system' : 'light'
+                )
+              }
+              aria-label="Toggle theme"
+            >
+              <span className="rail-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  {theme === 'dark' ? (
+                    <path d="M21 14.5A9 9 0 1 1 9.5 3 7 7 0 0 0 21 14.5z" />
                   ) : (
-                    <div className="empty">Fill the form to generate a QR.</div>
+                    <circle cx="12" cy="12" r="5" />
                   )}
-                </div>
-                <div className="preview-card meta">
-                  <h3>Payload Inspector</h3>
-                  <textarea value={payload} readOnly />
-                  <p className="muted">
-                    The payload string is available for developers to copy into
-                    their own workflows or APIs.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
+                </svg>
+              </span>
+              <span className="rail-label">
+                {theme === 'system' ? 'System' : theme === 'dark' ? 'Dark' : 'Light'}
+              </span>
+            </button>
+          </aside>
 
-        {activeTab === 'scan' && (
-          <section className="panel">
-            <div className="panel-head">
-              <div>
-                <h2>Scan QR Codes</h2>
-                <p>Open your camera or upload an image file to scan.</p>
-              </div>
-              <div className="panel-actions">
-                <button
-                  type="button"
-                  className={isCameraOn ? 'button ghost active' : 'button ghost'}
-                  onClick={() => setIsCameraOn((prev) => !prev)}
-                >
-                  {isCameraOn ? 'Stop Camera' : 'Start Camera'}
-                </button>
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={() =>
-                    setCameraFacing((prev) =>
-                      prev === 'environment' ? 'user' : 'environment'
-                    )
-                  }
-                >
-                  Flip Camera
-                </button>
-              </div>
-            </div>
-            <div className="panel-body">
-              <div className="scanner">
-                <div className="scanner-stage">
-                  <video ref={videoRef} muted playsInline autoPlay />
-                  {hasCamera === false && (
-                    <div className="notice">No camera detected.</div>
-                  )}
-                  {scanStatus === 'starting' && (
-                    <div className="notice">Starting camera...</div>
-                  )}
-                  {scanStatus === 'paused' && (
-                    <div className="notice">Camera paused.</div>
-                  )}
-                  {scanStatus === 'error' && (
-                    <div className="notice error">
-                      Camera failed to start. Make sure the site has camera
-                      permissions and is served over HTTPS.
-                    </div>
-                  )}
+          <section className="workspace">
+            {activeTab === 'generate' && (
+              <section className="panel config-panel">
+                <div className="panel-head">
+                  <div>
+                    <h2>Configuration</h2>
+                    <p>Pick a QR type, complete details, then style the output.</p>
+                  </div>
                 </div>
-                {availableCameras.length > 1 && (
-                  <label className="field">
-                    <span>Camera</span>
-                    <select
-                      value={activeCameraId ?? ''}
-                      onChange={(event) => setActiveCameraId(event.target.value)}
-                    >
-                      {availableCameras.map((camera) => (
-                        <option key={camera.id} value={camera.id}>
-                          {camera.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                <div className="scanner-actions">
-                  <button
-                    type="button"
-                    className="button"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Scan Image
-                  </button>
-                  <button type="button" className="button ghost" onClick={resetScanner}>
-                    Clear Results
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={(event) => {
-                      const file = event.target.files?.[0]
-                      if (file) {
-                        void handleScanImage(file)
-                      }
-                      event.currentTarget.value = ''
-                    }}
-                  />
-                </div>
-                {scanError && <div className="notice error">{scanError}</div>}
-              </div>
-              <div className="results">
-                <h3>Results</h3>
-                {scanResults.length === 0 ? (
-                  <p className="muted">No scans yet. Results will appear here.</p>
-                ) : (
-                  <ul>
-                    {scanResults.map((result, index) => (
-                      <li key={`${result.timestamp}-${index}`}>
-                        <div>
-                          <strong>{result.timestamp}</strong>
-                          <span>{result.data}</span>
+                <div className="generator-layout">
+                  <div className="generate-split">
+                    <div className="config-column">
+                      <div className="type-row">
+                        <div className="type-row-scroll">
+                          {qrTypes.map((type) => (
+                            <button
+                              key={type.id}
+                              type="button"
+                              className={
+                                qrTypeId === type.id ? 'type-pill active' : 'type-pill'
+                              }
+                              onClick={() => setQrTypeId(type.id)}
+                            >
+                              {type.label}
+                            </button>
+                          ))}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => navigator.clipboard.writeText(result.data)}
-                        >
-                          Copy
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
+                      </div>
 
-        {activeTab === 'library' && (
-          <section className="panel">
-            <div className="panel-head">
-              <div>
-                <h2>QR Type Library</h2>
-                <p>
-                  This catalog lists the payload types supported today. Expand it
-                  in the roadmap as you add more standards.
-                </p>
-              </div>
-            </div>
-            <div className="library">
-              {qrTypes.map((type) => (
-                <div key={type.id} className="library-card">
-                  <h3>{type.label}</h3>
-                  <p>{type.description}</p>
-                  <span>{type.fields.length} fields</span>
+                      <div className="section">
+                        <h4>Details</h4>
+                        <div className="form">
+                          {selectedType.fields.map((field) => (
+                            <label key={field.id} className="field">
+                              <span>
+                                {field.label}
+                                {field.required ? <em>Required</em> : null}
+                              </span>
+                              {field.type === 'textarea' ? (
+                                <textarea
+                                  value={values[field.id] || ''}
+                                  placeholder={field.placeholder}
+                                  onChange={(event) =>
+                                    updateValue(field.id, event.target.value)
+                                  }
+                                />
+                              ) : field.type === 'select' ? (
+                                <select
+                                  value={values[field.id] || ''}
+                                  onChange={(event) =>
+                                    updateValue(field.id, event.target.value)
+                                  }
+                                >
+                                  {field.options?.map((option) => (
+                                    <option key={option} value={option}>
+                                      {option}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : field.type === 'checkbox' ? (
+                                <button
+                                  type="button"
+                                  className={
+                                    values[field.id] === 'true'
+                                      ? 'toggle active'
+                                      : 'toggle'
+                                  }
+                                  onClick={() =>
+                                    updateValue(
+                                      field.id,
+                                      values[field.id] === 'true' ? 'false' : 'true'
+                                    )
+                                  }
+                                >
+                                  {values[field.id] === 'true' ? 'Yes' : 'No'}
+                                </button>
+                              ) : (
+                                <input
+                                  type={field.type}
+                                  value={values[field.id] || ''}
+                                  placeholder={field.placeholder}
+                                  onChange={(event) =>
+                                    updateValue(field.id, event.target.value)
+                                  }
+                                />
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="section">
+                        <h4>Style</h4>
+                        <StyleController values={styleValues} onChange={handleStyleChange} />
+                      </div>
+                    </div>
+
+                    <div className="preview-column">
+                      <ActionCard
+                        title="Live Preview"
+                        description={payload ? payload.slice(0, 64) : 'Waiting for data'}
+                        className="sticky-preview"
+                        actions={
+                          <div className="preview-actions">
+                            <button
+                              className="button secondary"
+                              type="button"
+                              disabled={!payload}
+                              onClick={handleCopy}
+                            >
+                              {copyStatus === 'copied' ? 'Copied' : 'Copy'}
+                            </button>
+                            <button
+                              className="button primary"
+                              type="button"
+                              disabled={!payload}
+                              onClick={() =>
+                                qrStylingRef.current?.download({
+                                  name: createDownloadName(qrTypeId).replace('.png', ''),
+                                  extension: 'png',
+                                })
+                              }
+                            >
+                              Download
+                            </button>
+                          </div>
+                        }
+                      >
+                        {missingRequired.length > 0 ? (
+                          <div className="notice">
+                            Fill the required fields to generate a QR.
+                          </div>
+                        ) : payload ? (
+                          <div ref={qrCanvasRef} className="qr-canvas" />
+                        ) : (
+                          <div className="empty">Fill the form to generate a QR.</div>
+                        )}
+                      </ActionCard>
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
+              </section>
+            )}
+
+            {activeTab === 'scan' && (
+              <section className="panel">
+                <div className="panel-head">
+                  <div>
+                    <h2>Scan QR Codes</h2>
+                    <p>Scanning tools are being polished for the next release.</p>
+                  </div>
+                </div>
+                <ActionCard title="Coming Soon" description="Camera tools are on the way.">
+                  <div className="empty">Scanning will land in the next release.</div>
+                </ActionCard>
+              </section>
+            )}
+
+            {activeTab === 'history' && (
+              <section className="panel">
+                <div className="panel-head">
+                  <div>
+                    <h2>History</h2>
+                    <p>Previously generated QR codes stored on this device.</p>
+                  </div>
+                  <div className="panel-actions">
+                    <div className="history-meta">
+                      <span className="muted">
+                        {historyItems.length} saved
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={historyItems.length === 0}
+                      onClick={clearHistory}
+                    >
+                      Clear history
+                    </button>
+                  </div>
+                </div>
+                {historyItems.length === 0 ? (
+                  <div className="empty-card">
+                    <strong>No saved QR codes yet.</strong>
+                    <span className="muted">
+                      Create a QR on the Generate tab and we will keep the most recent
+                      ones here automatically.
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="history-toolbar">
+                      <span className="muted">
+                        Showing the latest {Math.min(12, historyItems.length)} QR codes.
+                      </span>
+                    </div>
+                    <div className="history-grid">
+                      {historyItems.map((item) => (
+                        <div key={item.id} className="history-card">
+                          <div className="history-preview">
+                            <img src={item.dataUrl} alt="QR code" />
+                          </div>
+                          <div className="history-content">
+                            <p className="history-title">
+                              {item.payload.slice(0, 56)}
+                            </p>
+                            <span className="muted small">
+                              {new Date(item.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </section>
+            )}
           </section>
-        )}
+        </div>
       </main>
 
       <footer className="footer">
-        <div>
+        <div className="footer-brand">
           <strong>QR Studio</strong>
+          <span className="muted">Professional QR tooling for modern teams.</span>
         </div>
-        <p>
-          Add new QR types and scanner features via the roadmap in the docs.
-        </p>
+        <div className="footer-links">
+          <span>Docs</span>
+          <span>Roadmap</span>
+          <span>Support</span>
+        </div>
       </footer>
     </div>
   )
