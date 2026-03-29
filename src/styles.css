@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   --ink: #0f172a;
   --muted: #5b6675;
   --accent: #1d4ed8;
@@ -319,8 +319,9 @@ body {
 }
 
 .panel-head h2 {
-  font-family: 'Sora', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 1.85rem;
+  font-weight: 800;
   margin-bottom: 6px;
 }
 
@@ -383,6 +384,7 @@ body {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.15);
 }
 
 .config-style-grid {
@@ -566,6 +568,7 @@ body {
   display: flex;
   justify-content: space-between;
   color: var(--muted);
+  font-weight: 500;
 }
 
 .field em {
@@ -623,6 +626,7 @@ textarea:focus {
   background: #ffffff;
   display: grid;
   gap: 12px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .sticky-preview {
@@ -660,6 +664,12 @@ textarea:focus {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.preview-actions {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
 }
 
 .preview-card.meta textarea {
@@ -706,6 +716,19 @@ button.toggle:hover {
 .button.ghost.active {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.empty-state {
+  padding: 32px;
+}
+
+.empty-card {
+  background: var(--panel-strong);
+  border: 1px dashed var(--border);
+  border-radius: 24px;
+  padding: 24px;
+  display: grid;
+  gap: 10px;
 }
 
 button.toggle {

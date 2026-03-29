@@ -66,6 +66,7 @@ function App() {
   const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>(
     'environment'
   )
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
   const [availableCameras, setAvailableCameras] = useState<CameraOption[]>([])
   const [activeCameraId, setActiveCameraId] = useState<string | null>(null)
 
@@ -250,6 +251,26 @@ function App() {
   const resetScanner = () => {
     setScanResults([])
     setScanError('')
+  }
+
+  const handleCopy = async () => {
+    if (!qrStylingRef.current || !payload) return
+    try {
+      const raw = await qrStylingRef.current.getRawData('png')
+      if (!raw) return
+      const blob =
+        raw instanceof Blob
+          ? raw
+          : new Blob([raw as unknown as ArrayBuffer], { type: 'image/png' })
+      if (navigator.clipboard && 'write' in navigator.clipboard) {
+        const item = new ClipboardItem({ 'image/png': blob })
+        await navigator.clipboard.write([item])
+        setCopyStatus('copied')
+        window.setTimeout(() => setCopyStatus('idle'), 1500)
+      }
+    } catch (error) {
+      setCopyStatus('idle')
+    }
   }
 
   const styleValues: StyleValues = {
@@ -454,19 +475,29 @@ function App() {
                             {payload ? payload.slice(0, 64) : 'Waiting for data'}
                           </p>
                         </div>
-                        <button
-                          className="button primary"
-                          type="button"
-                          disabled={!payload}
-                          onClick={() =>
-                            qrStylingRef.current?.download({
-                              name: createDownloadName(qrTypeId).replace('.png', ''),
-                              extension: 'png',
-                            })
-                          }
-                        >
-                          Download QR
-                        </button>
+                        <div className="preview-actions">
+                          <button
+                            className="button ghost"
+                            type="button"
+                            disabled={!payload}
+                            onClick={handleCopy}
+                          >
+                            {copyStatus === 'copied' ? 'Copied' : 'Copy'}
+                          </button>
+                          <button
+                            className="button primary"
+                            type="button"
+                            disabled={!payload}
+                            onClick={() =>
+                              qrStylingRef.current?.download({
+                                name: createDownloadName(qrTypeId).replace('.png', ''),
+                                extension: 'png',
+                              })
+                            }
+                          >
+                            Download QR
+                          </button>
+                        </div>
                       </div>
                       {missingRequired.length > 0 ? (
                         <div className="notice">
@@ -492,113 +523,15 @@ function App() {
                 <div className="panel-head">
                   <div>
                     <h2>Scan QR Codes</h2>
-                    <p>Open your camera or upload an image file to scan.</p>
-                  </div>
-                  <div className="panel-actions">
-                    <button
-                      type="button"
-                      className={isCameraOn ? 'button ghost active' : 'button ghost'}
-                      onClick={() => setIsCameraOn((prev) => !prev)}
-                    >
-                      {isCameraOn ? 'Stop Camera' : 'Start Camera'}
-                    </button>
-                    <button
-                      type="button"
-                      className="button ghost"
-                      onClick={() =>
-                        setCameraFacing((prev) =>
-                          prev === 'environment' ? 'user' : 'environment'
-                        )
-                      }
-                    >
-                      Flip Camera
-                    </button>
+                    <p>Scanning tools are being polished for the next release.</p>
                   </div>
                 </div>
-                <div className="panel-body">
-                  <div className="scanner">
-                    <div className="scanner-stage">
-                      <video ref={videoRef} muted playsInline autoPlay />
-                      {hasCamera === false && (
-                        <div className="notice">No camera detected.</div>
-                      )}
-                      {scanStatus === 'starting' && (
-                        <div className="notice">Starting camera...</div>
-                      )}
-                      {scanStatus === 'paused' && (
-                        <div className="notice">Camera paused.</div>
-                      )}
-                      {scanStatus === 'error' && (
-                        <div className="notice error">
-                          Camera failed to start. Make sure the site has camera
-                          permissions and is served over HTTPS.
-                        </div>
-                      )}
-                    </div>
-                    {availableCameras.length > 1 && (
-                      <label className="field">
-                        <span>Camera</span>
-                        <select
-                          value={activeCameraId ?? ''}
-                          onChange={(event) => setActiveCameraId(event.target.value)}
-                        >
-                          {availableCameras.map((camera) => (
-                            <option key={camera.id} value={camera.id}>
-                              {camera.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <div className="scanner-actions">
-                      <button
-                        type="button"
-                        className="button"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        Scan Image
-                      </button>
-                      <button type="button" className="button ghost" onClick={resetScanner}>
-                        Clear Results
-                      </button>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        hidden
-                        onChange={(event) => {
-                          const file = event.target.files?.[0]
-                          if (file) {
-                            void handleScanImage(file)
-                          }
-                          event.currentTarget.value = ''
-                        }}
-                      />
-                    </div>
-                    {scanError && <div className="notice error">{scanError}</div>}
-                  </div>
-                  <div className="results">
-                    <h3>Results</h3>
-                    {scanResults.length === 0 ? (
-                      <p className="muted">No scans yet. Results will appear here.</p>
-                    ) : (
-                      <ul>
-                        {scanResults.map((result, index) => (
-                          <li key={`${result.timestamp}-${index}`}>
-                            <div>
-                              <strong>{result.timestamp}</strong>
-                              <span>{result.data}</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => navigator.clipboard.writeText(result.data)}
-                            >
-                              Copy
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                <div className="empty-state">
+                  <div className="empty-card">
+                    <h3>Coming Soon</h3>
+                    <p className="muted">
+                      Camera scanning, history, and export controls are on the way.
+                    </p>
                   </div>
                 </div>
               </section>
