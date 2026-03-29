@@ -229,7 +229,21 @@ function App() {
     <div className="app">
       <header className="hero">
         <div className="hero-top">
-          <div className="badge">QR Studio</div>
+          <div className="badge">
+            <span className="mark" aria-hidden="true">
+              <svg viewBox="0 0 64 64" role="img" aria-label="QR Studio icon">
+                <rect width="64" height="64" rx="14" fill="#111111" />
+                <rect x="10" y="10" width="16" height="16" rx="3" fill="#ff7a18" />
+                <rect x="38" y="10" width="16" height="16" rx="3" fill="#ff7a18" />
+                <rect x="10" y="38" width="16" height="16" rx="3" fill="#ff7a18" />
+                <path
+                  d="M32 24h8v16h-4v6h-4V24zm8 22h6v6h-6v-6z"
+                  fill="#fff6ea"
+                />
+              </svg>
+            </span>
+            QR Studio
+          </div>
           <nav className="tabs">
             <button
               type="button"
