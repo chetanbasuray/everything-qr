@@ -261,6 +261,10 @@ body {
   box-shadow: var(--shadow);
 }
 
+.panel.compact {
+  padding: 20px;
+}
+
 .panel + .panel {
   margin-top: 32px;
 }
@@ -299,6 +303,76 @@ body {
 .form {
   display: grid;
   gap: 16px;
+}
+
+.generator-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.type-row {
+  display: grid;
+  gap: 10px;
+}
+
+.type-row h3 {
+  font-family: 'Sora', sans-serif;
+  font-size: 1.05rem;
+}
+
+.type-row-scroll {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.type-pill {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: var(--muted);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.type-pill.active,
+.type-pill:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.generator-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 18px;
+}
+
+.generator-left,
+.generator-right {
+  display: grid;
+  gap: 16px;
+}
+
+.section {
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.section h4 {
+  font-family: 'Sora', sans-serif;
+  font-size: 1rem;
+}
+
+.compact-form .row {
+  gap: 10px;
 }
 
 .type-picker {
@@ -476,6 +550,17 @@ button.toggle {
   transition: transform 0.2s ease, background 0.2s ease;
 }
 
+.button.primary {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.button.primary:disabled {
+  background: #cbd5f5;
+  color: #ffffff;
+  cursor: not-allowed;
+}
+
 .button:hover,
 button.toggle:hover {
   background: var(--accent-strong);
@@ -645,6 +730,10 @@ button.toggle.active {
 
 @media (max-width: 900px) {
   .panel-body {
+    grid-template-columns: 1fr;
+  }
+
+  .generator-grid {
     grid-template-columns: 1fr;
   }
 
