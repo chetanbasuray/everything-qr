@@ -9,6 +9,7 @@ import type {
 import QrScanner from 'qr-scanner'
 import qrWorkerPath from 'qr-scanner/qr-scanner-worker.min.js?url'
 import { buildPayload, getDefaultValues, qrTypes } from './lib/qrTypes'
+import StyleController, { type StyleValues } from './components/StyleController'
 
 QrScanner.WORKER_PATH = qrWorkerPath
 
@@ -251,6 +252,28 @@ function App() {
     setScanError('')
   }
 
+  const styleValues: StyleValues = {
+    size,
+    margin,
+    errorLevel,
+    darkColor,
+    lightColor,
+    moduleStyle,
+    cornerStyle,
+    eyeStyle,
+  }
+
+  const handleStyleChange = (next: Partial<StyleValues>) => {
+    if (next.size !== undefined) setSize(next.size)
+    if (next.margin !== undefined) setMargin(next.margin)
+    if (next.errorLevel !== undefined) setErrorLevel(next.errorLevel)
+    if (next.darkColor !== undefined) setDarkColor(next.darkColor)
+    if (next.lightColor !== undefined) setLightColor(next.lightColor)
+    if (next.moduleStyle !== undefined) setModuleStyle(next.moduleStyle)
+    if (next.cornerStyle !== undefined) setCornerStyle(next.cornerStyle)
+    if (next.eyeStyle !== undefined) setEyeStyle(next.eyeStyle)
+  }
+
   return (
     <div className="app">
       <header className="hero">
@@ -420,113 +443,7 @@ function App() {
                   <div className="config-style-grid">
                     <div className="section">
                       <h4>Style</h4>
-                      <div className="form compact-form">
-                        <div className="row">
-                          <label className="field">
-                            <span>Size (px)</span>
-                            <input
-                              type="number"
-                              min={180}
-                              max={720}
-                              value={size}
-                              onChange={(event) => setSize(Number(event.target.value))}
-                            />
-                          </label>
-                          <label className="field">
-                            <span>Margin</span>
-                            <input
-                              type="number"
-                              min={0}
-                              max={8}
-                              value={margin}
-                              onChange={(event) => setMargin(Number(event.target.value))}
-                            />
-                          </label>
-                        </div>
-                        <div className="row">
-                          <label className="field">
-                            <span>Error Correction</span>
-                            <select
-                              value={errorLevel}
-                              onChange={(event) =>
-                                setErrorLevel(
-                                  event.target.value as typeof errorLevels[number]
-                                )
-                              }
-                            >
-                              {errorLevels.map((level) => (
-                                <option key={level} value={level}>
-                                  {level}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="field">
-                            <span>Dark color</span>
-                            <input
-                              type="color"
-                              value={darkColor}
-                              onChange={(event) =>
-                                setDarkColor(event.target.value)
-                              }
-                            />
-                          </label>
-                        </div>
-                        <div className="row">
-                          <label className="field">
-                            <span>Light color</span>
-                            <input
-                              type="color"
-                              value={lightColor}
-                              onChange={(event) =>
-                                setLightColor(event.target.value)
-                              }
-                            />
-                          </label>
-                          <label className="field">
-                            <span>Module style</span>
-                            <select
-                              value={moduleStyle}
-                              onChange={(event) =>
-                                setModuleStyle(event.target.value as DotType)
-                              }
-                            >
-                              <option value="square">Square</option>
-                              <option value="rounded">Rounded</option>
-                              <option value="dots">Dots</option>
-                              <option value="extra-rounded">Extra Rounded</option>
-                              <option value="classy">Classy</option>
-                              <option value="classy-rounded">Classy Rounded</option>
-                            </select>
-                          </label>
-                        </div>
-                        <div className="row">
-                          <label className="field">
-                            <span>Corner style</span>
-                            <select
-                              value={cornerStyle}
-                              onChange={(event) =>
-                                setCornerStyle(event.target.value as CornerSquareType)
-                              }
-                            >
-                              <option value="square">Square</option>
-                              <option value="extra-rounded">Extra Rounded</option>
-                            </select>
-                          </label>
-                          <label className="field">
-                            <span>Eye style</span>
-                            <select
-                              value={eyeStyle}
-                              onChange={(event) =>
-                                setEyeStyle(event.target.value as CornerDotType)
-                              }
-                            >
-                              <option value="square">Square</option>
-                              <option value="dot">Dot</option>
-                            </select>
-                          </label>
-                        </div>
-                      </div>
+                      <StyleController values={styleValues} onChange={handleStyleChange} />
                     </div>
 
                     <div className="preview-card sticky-preview">
