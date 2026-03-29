@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { type ReactNode, useRef } from 'react'
 import type { CornerDotType, CornerSquareType, DotType } from 'qr-code-styling'
 
 type StyleValues = {
@@ -15,6 +15,7 @@ type StyleValues = {
 type StyleControllerProps = {
   values: StyleValues
   onChange: (next: Partial<StyleValues>) => void
+  onReset?: () => void
 }
 
 const ColorSwatchPicker = ({
@@ -57,7 +58,7 @@ const TileControl = <T extends string>({
 }: {
   label: string
   value: T
-  options: { value: T; label: string; glyph: string }[]
+  options: { value: T; label: string; icon: ReactNode }[]
   onChange: (next: T) => void
 }) => (
   <div className="tile-field">
@@ -70,7 +71,7 @@ const TileControl = <T extends string>({
           className={value === option.value ? 'tile active' : 'tile'}
           onClick={() => onChange(option.value)}
         >
-          <span className="tile-glyph">{option.glyph}</span>
+          <span className="tile-icon">{option.icon}</span>
           <span>{option.label}</span>
         </button>
       ))}
@@ -78,7 +79,56 @@ const TileControl = <T extends string>({
   </div>
 )
 
-const StyleController = ({ values, onChange }: StyleControllerProps) => (
+const ModuleIcon = ({ variant }: { variant: DotType }) => {
+  const rx =
+    variant === 'rounded' ? 2 : variant === 'extra-rounded' ? 4 : 1
+  const isDot = variant === 'dots'
+  const isClassy = variant === 'classy' || variant === 'classy-rounded'
+  return (
+    <svg viewBox="0 0 36 24" aria-hidden="true">
+      {isDot ? (
+        <>
+          <circle cx="8" cy="8" r="3" />
+          <circle cx="18" cy="8" r="3" />
+          <circle cx="28" cy="8" r="3" />
+          <circle cx="8" cy="18" r="3" />
+          <circle cx="18" cy="18" r="3" />
+          <circle cx="28" cy="18" r="3" />
+        </>
+      ) : (
+        <>
+          <rect x="5" y="5" width="6" height="6" rx={rx} />
+          <rect x="15" y="5" width="6" height="6" rx={rx} />
+          <rect x="25" y="5" width="6" height="6" rx={rx} />
+          <rect x="5" y="15" width="6" height="6" rx={rx} />
+          <rect x="15" y="15" width="6" height="6" rx={rx} />
+          <rect x="25" y="15" width="6" height="6" rx={rx} />
+        </>
+      )}
+      {isClassy ? <rect x="5" y="5" width="26" height="16" rx={rx} /> : null}
+    </svg>
+  )
+}
+
+const CornerIcon = ({ variant }: { variant: CornerSquareType }) => (
+  <svg viewBox="0 0 28 24" aria-hidden="true">
+    <rect x="4" y="4" width="16" height="16" rx={variant === 'square' ? 2 : 5} />
+    <rect x="9" y="9" width="6" height="6" rx={variant === 'square' ? 1 : 3} />
+  </svg>
+)
+
+const EyeIcon = ({ variant }: { variant: CornerDotType }) => (
+  <svg viewBox="0 0 28 24" aria-hidden="true">
+    <rect x="4" y="4" width="16" height="16" rx={4} />
+    {variant === 'square' ? (
+      <rect x="9" y="9" width="6" height="6" rx={1} />
+    ) : (
+      <circle cx="12" cy="12" r="3" />
+    )}
+  </svg>
+)
+
+const StyleController = ({ values, onChange, onReset }: StyleControllerProps) => (
   <div className="style-controller">
     <div className="row">
       <label className="field">
@@ -111,12 +161,20 @@ const StyleController = ({ values, onChange }: StyleControllerProps) => (
       value={values.moduleStyle}
       onChange={(next) => onChange({ moduleStyle: next })}
       options={[
-        { value: 'square', label: 'Square', glyph: 'SQ' },
-        { value: 'rounded', label: 'Rounded', glyph: 'RD' },
-        { value: 'dots', label: 'Dots', glyph: 'DT' },
-        { value: 'extra-rounded', label: 'Extra', glyph: 'XR' },
-        { value: 'classy', label: 'Classy', glyph: 'CL' },
-        { value: 'classy-rounded', label: 'Soft', glyph: 'CR' },
+        { value: 'square', label: 'Square', icon: <ModuleIcon variant="square" /> },
+        { value: 'rounded', label: 'Rounded', icon: <ModuleIcon variant="rounded" /> },
+        { value: 'dots', label: 'Dots', icon: <ModuleIcon variant="dots" /> },
+        {
+          value: 'extra-rounded',
+          label: 'Extra',
+          icon: <ModuleIcon variant="extra-rounded" />,
+        },
+        { value: 'classy', label: 'Classy', icon: <ModuleIcon variant="classy" /> },
+        {
+          value: 'classy-rounded',
+          label: 'Soft',
+          icon: <ModuleIcon variant="classy-rounded" />,
+        },
       ]}
     />
 
@@ -125,8 +183,12 @@ const StyleController = ({ values, onChange }: StyleControllerProps) => (
       value={values.cornerStyle}
       onChange={(next) => onChange({ cornerStyle: next })}
       options={[
-        { value: 'square', label: 'Square', glyph: 'SQ' },
-        { value: 'extra-rounded', label: 'Rounded', glyph: 'RD' },
+        { value: 'square', label: 'Square', icon: <CornerIcon variant="square" /> },
+        {
+          value: 'extra-rounded',
+          label: 'Rounded',
+          icon: <CornerIcon variant="extra-rounded" />,
+        },
       ]}
     />
 
@@ -135,8 +197,8 @@ const StyleController = ({ values, onChange }: StyleControllerProps) => (
       value={values.eyeStyle}
       onChange={(next) => onChange({ eyeStyle: next })}
       options={[
-        { value: 'square', label: 'Square', glyph: 'SQ' },
-        { value: 'dot', label: 'Dot', glyph: 'DT' },
+        { value: 'square', label: 'Square', icon: <EyeIcon variant="square" /> },
+        { value: 'dot', label: 'Dot', icon: <EyeIcon variant="dot" /> },
       ]}
     />
 
@@ -170,6 +232,12 @@ const StyleController = ({ values, onChange }: StyleControllerProps) => (
         </label>
       </div>
     </details>
+
+    {onReset ? (
+      <button type="button" className="button ghost" onClick={onReset}>
+        Reset to defaults
+      </button>
+    ) : null}
   </div>
 )
 

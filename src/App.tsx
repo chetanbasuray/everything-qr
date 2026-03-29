@@ -8,39 +8,64 @@ import type {
 } from 'qr-code-styling'
 import { buildPayload, getDefaultValues, qrTypes } from './lib/qrTypes'
 import StyleController, { type StyleValues } from './components/StyleController'
-import ActionCard from './components/ActionCard'
+import ActionCanvas from './components/ActionCanvas'
+import { useTheme } from './components/ThemeProvider'
+import { urlLikeRegex } from './regexes'
 
 const errorLevels = ['L', 'M', 'Q', 'H'] as const
 
 const createDownloadName = (typeId: string) =>
-  `everything-qr-${typeId}-${new Date().toISOString().slice(0, 10)}.png`
+  `everything-qr-${typeId}-${new Date().toISOString().slice(0, 10)}`
+
+const defaultStyle: StyleValues = {
+  size: 320,
+  margin: 2,
+  errorLevel: 'M',
+  darkColor: '#0f172a',
+  lightColor: '#ffffff',
+  moduleStyle: 'square',
+  cornerStyle: 'square',
+  eyeStyle: 'square',
+}
+
+type HistoryItem = {
+  id: string
+  payload: string
+  dataUrl: string
+  createdAt: number
+  typeId: string
+  values: Record<string, string>
+  style: StyleValues
+}
 
 function App() {
+  const { theme, cycleTheme } = useTheme()
   const [activeTab, setActiveTab] = useState<'generate' | 'scan' | 'history'>(
     'generate'
   )
   const [navCollapsed, setNavCollapsed] = useState(false)
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
   const [qrTypeId, setQrTypeId] = useState(qrTypes[0].id)
   const [values, setValues] = useState<Record<string, string>>(() =>
     getDefaultValues(qrTypes[0].id)
   )
-  const [size, setSize] = useState(320)
-  const [margin, setMargin] = useState(2)
+  const [size, setSize] = useState(defaultStyle.size)
+  const [margin, setMargin] = useState(defaultStyle.margin)
   const [errorLevel, setErrorLevel] = useState<(typeof errorLevels)[number]>(
-    'M'
+    defaultStyle.errorLevel
   )
-  const [darkColor, setDarkColor] = useState('#0f172a')
-  const [lightColor, setLightColor] = useState('#ffffff')
-  const [moduleStyle, setModuleStyle] = useState<DotType>('square')
-  const [cornerStyle, setCornerStyle] = useState<CornerSquareType>('square')
-  const [eyeStyle, setEyeStyle] = useState<CornerDotType>('square')
+  const [darkColor, setDarkColor] = useState(defaultStyle.darkColor)
+  const [lightColor, setLightColor] = useState(defaultStyle.lightColor)
+  const [moduleStyle, setModuleStyle] = useState<DotType>(defaultStyle.moduleStyle)
+  const [cornerStyle, setCornerStyle] = useState<CornerSquareType>(
+    defaultStyle.cornerStyle
+  )
+  const [eyeStyle, setEyeStyle] = useState<CornerDotType>(defaultStyle.eyeStyle)
   const qrCanvasRef = useRef<HTMLDivElement | null>(null)
   const qrStylingRef = useRef<QRCodeStyling | null>(null)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
-  const [historyItems, setHistoryItems] = useState<
-    { id: string; payload: string; dataUrl: string; createdAt: number }[]
-  >([])
+  const [downloadFormat, setDownloadFormat] = useState<'png' | 'svg'>('png')
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([])
+  const skipDefaultsRef = useRef(false)
 
   const selectedType = useMemo(
     () => qrTypes.find((type) => type.id === qrTypeId) ?? qrTypes[0],
@@ -55,59 +80,59 @@ function App() {
     [selectedType.fields, values]
   )
 
+  const fieldErrors = useMemo(() => {
+    const invalid = new Set(missingRequired.map((field) => field.id))
+    selectedType.fields.forEach((field) => {
+      if (field.type !== 'url') return
+      const value = String(values[field.id] || '').trim()
+      if (value && !urlLikeRegex.test(value)) {
+        invalid.add(field.id)
+      }
+    })
+    return invalid
+  }, [missingRequired, selectedType.fields, values])
+
+  const hasInvalidFields = fieldErrors.size > 0
+
   const payload = useMemo(
-    () => (missingRequired.length ? '' : buildPayload(qrTypeId, values)),
-    [missingRequired.length, qrTypeId, values]
+    () => (hasInvalidFields ? '' : buildPayload(qrTypeId, values)),
+    [hasInvalidFields, qrTypeId, values]
   )
 
-  useEffect(() => {
-    const storedTheme = window.localStorage.getItem('qrstudio-theme')
-    if (storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'system') {
-      setTheme(storedTheme)
-    }
-  }, [])
-
-  useEffect(() => {
-    const root = document.documentElement
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)')
-    const applyTheme = (next: 'light' | 'dark' | 'system') => {
-      if (next === 'system') {
-        root.dataset.theme = prefersDark.matches ? 'dark' : 'light'
-      } else {
-        root.dataset.theme = next
-      }
-    }
-
-    applyTheme(theme)
-    window.localStorage.setItem('qrstudio-theme', theme)
-
-    const listener = (event: MediaQueryListEvent) => {
-      if (theme === 'system') {
-        root.dataset.theme = event.matches ? 'dark' : 'light'
-      }
-    }
-
-    prefersDark.addEventListener('change', listener)
-    return () => prefersDark.removeEventListener('change', listener)
-  }, [theme])
+  const showMissingRequired = missingRequired.length > 0
+  const showInvalidNotice = hasInvalidFields && !showMissingRequired
 
   useEffect(() => {
     const stored = window.localStorage.getItem('qrstudio-history')
     if (!stored) return
     try {
-      const parsed = JSON.parse(stored) as {
-        id: string
-        payload: string
-        dataUrl: string
-        createdAt: number
-      }[]
-      setHistoryItems(parsed)
+      const parsed = JSON.parse(stored) as Partial<HistoryItem>[]
+      const normalized = parsed
+        .map((item) => {
+          const typeId = item.typeId ?? qrTypes[0].id
+          const values = item.values ?? getDefaultValues(typeId)
+          return {
+            id: item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            payload: item.payload ?? '',
+            dataUrl: item.dataUrl ?? '',
+            createdAt: item.createdAt ?? Date.now(),
+            typeId,
+            values,
+            style: item.style ?? defaultStyle,
+          }
+        })
+        .filter((item) => item.payload && item.dataUrl)
+      setHistoryItems(normalized)
     } catch (error) {
       setHistoryItems([])
     }
   }, [])
 
   useEffect(() => {
+    if (skipDefaultsRef.current) {
+      skipDefaultsRef.current = false
+      return
+    }
     setValues(getDefaultValues(qrTypeId))
   }, [qrTypeId])
 
@@ -180,11 +205,23 @@ function App() {
           const dataUrl = String(reader.result || '')
           setHistoryItems((prev) => {
             if (!dataUrl) return prev
-            const nextItem = {
+            const nextItem: HistoryItem = {
               id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
               payload,
               dataUrl,
               createdAt: Date.now(),
+              typeId: qrTypeId,
+              values: { ...values },
+              style: {
+                size,
+                margin,
+                errorLevel,
+                darkColor,
+                lightColor,
+                moduleStyle,
+                cornerStyle,
+                eyeStyle,
+              },
             }
             const merged = [nextItem, ...prev.filter((item) => item.payload !== payload)]
             const trimmed = merged.slice(0, 12)
@@ -199,7 +236,19 @@ function App() {
     }, 800)
 
     return () => window.clearTimeout(timer)
-  }, [payload, moduleStyle, cornerStyle, eyeStyle, darkColor, lightColor])
+  }, [
+    payload,
+    qrTypeId,
+    values,
+    size,
+    margin,
+    errorLevel,
+    moduleStyle,
+    cornerStyle,
+    eyeStyle,
+    darkColor,
+    lightColor,
+  ])
 
 
   const updateValue = (id: string, value: string) => {
@@ -249,6 +298,25 @@ function App() {
     if (next.moduleStyle !== undefined) setModuleStyle(next.moduleStyle)
     if (next.cornerStyle !== undefined) setCornerStyle(next.cornerStyle)
     if (next.eyeStyle !== undefined) setEyeStyle(next.eyeStyle)
+  }
+
+  const resetStyle = () => {
+    setSize(defaultStyle.size)
+    setMargin(defaultStyle.margin)
+    setErrorLevel(defaultStyle.errorLevel)
+    setDarkColor(defaultStyle.darkColor)
+    setLightColor(defaultStyle.lightColor)
+    setModuleStyle(defaultStyle.moduleStyle)
+    setCornerStyle(defaultStyle.cornerStyle)
+    setEyeStyle(defaultStyle.eyeStyle)
+  }
+
+  const handleRestore = (item: HistoryItem) => {
+    skipDefaultsRef.current = true
+    setQrTypeId(item.typeId)
+    setValues(item.values)
+    handleStyleChange(item.style)
+    setActiveTab('generate')
   }
 
   const clearHistory = () => {
@@ -336,11 +404,7 @@ function App() {
             <button
               type="button"
               className="rail-item rail-theme"
-              onClick={() =>
-                setTheme((prev) =>
-                  prev === 'light' ? 'dark' : prev === 'dark' ? 'system' : 'light'
-                )
-              }
+              onClick={cycleTheme}
               aria-label="Toggle theme"
             >
               <span className="rail-icon" aria-hidden="true">
@@ -390,8 +454,13 @@ function App() {
                       <div className="section">
                         <h4>Details</h4>
                         <div className="form">
-                          {selectedType.fields.map((field) => (
-                            <label key={field.id} className="field">
+                          {selectedType.fields.map((field) => {
+                            const hasError = fieldErrors.has(field.id)
+                            return (
+                            <label
+                              key={field.id}
+                              className={hasError ? 'field error' : 'field'}
+                            >
                               <span>
                                 {field.label}
                                 {field.required ? <em>Required</em> : null}
@@ -400,6 +469,7 @@ function App() {
                                 <textarea
                                   value={values[field.id] || ''}
                                   placeholder={field.placeholder}
+                                  aria-invalid={hasError || undefined}
                                   onChange={(event) =>
                                     updateValue(field.id, event.target.value)
                                   }
@@ -407,6 +477,7 @@ function App() {
                               ) : field.type === 'select' ? (
                                 <select
                                   value={values[field.id] || ''}
+                                  aria-invalid={hasError || undefined}
                                   onChange={(event) =>
                                     updateValue(field.id, event.target.value)
                                   }
@@ -439,24 +510,30 @@ function App() {
                                   type={field.type}
                                   value={values[field.id] || ''}
                                   placeholder={field.placeholder}
+                                  aria-invalid={hasError || undefined}
                                   onChange={(event) =>
                                     updateValue(field.id, event.target.value)
                                   }
                                 />
                               )}
                             </label>
-                          ))}
+                          )
+                          })}
                         </div>
                       </div>
 
                       <div className="section">
                         <h4>Style</h4>
-                        <StyleController values={styleValues} onChange={handleStyleChange} />
+                        <StyleController
+                          values={styleValues}
+                          onChange={handleStyleChange}
+                          onReset={resetStyle}
+                        />
                       </div>
                     </div>
 
                     <div className="preview-column">
-                      <ActionCard
+                      <ActionCanvas
                         title="Live Preview"
                         description={payload ? payload.slice(0, 64) : 'Waiting for data'}
                         className="sticky-preview"
@@ -470,32 +547,49 @@ function App() {
                             >
                               {copyStatus === 'copied' ? 'Copied' : 'Copy'}
                             </button>
-                            <button
-                              className="button primary"
-                              type="button"
-                              disabled={!payload}
-                              onClick={() =>
-                                qrStylingRef.current?.download({
-                                  name: createDownloadName(qrTypeId).replace('.png', ''),
-                                  extension: 'png',
-                                })
-                              }
-                            >
-                              Download
-                            </button>
+                            <div className="download-group">
+                              <select
+                                className="select compact"
+                                value={downloadFormat}
+                                onChange={(event) =>
+                                  setDownloadFormat(event.target.value as 'png' | 'svg')
+                                }
+                                aria-label="Download format"
+                              >
+                                <option value="png">PNG</option>
+                                <option value="svg">SVG</option>
+                              </select>
+                              <button
+                                className="button primary"
+                                type="button"
+                                disabled={!payload}
+                                onClick={() =>
+                                  qrStylingRef.current?.download({
+                                    name: createDownloadName(qrTypeId),
+                                    extension: downloadFormat,
+                                  })
+                                }
+                              >
+                                Download
+                              </button>
+                            </div>
                           </div>
                         }
                       >
-                        {missingRequired.length > 0 ? (
+                        {showMissingRequired ? (
                           <div className="notice">
                             Fill the required fields to generate a QR.
+                          </div>
+                        ) : showInvalidNotice ? (
+                          <div className="notice">
+                            Please correct the highlighted fields to continue.
                           </div>
                         ) : payload ? (
                           <div ref={qrCanvasRef} className="qr-canvas" />
                         ) : (
                           <div className="empty">Fill the form to generate a QR.</div>
                         )}
-                      </ActionCard>
+                      </ActionCanvas>
                     </div>
                   </div>
                 </div>
@@ -510,9 +604,16 @@ function App() {
                     <p>Scanning tools are being polished for the next release.</p>
                   </div>
                 </div>
-                <ActionCard title="Coming Soon" description="Camera tools are on the way.">
-                  <div className="empty">Scanning will land in the next release.</div>
-                </ActionCard>
+                <ActionCanvas
+                  title="Scanner"
+                  description="Camera tools are on the way."
+                >
+                  <div className="scan-placeholder">
+                    <div className="empty">
+                      Live camera and file upload will appear here soon.
+                    </div>
+                  </div>
+                </ActionCanvas>
               </section>
             )}
 
@@ -567,6 +668,13 @@ function App() {
                             <span className="muted small">
                               {new Date(item.createdAt).toLocaleString()}
                             </span>
+                            <button
+                              type="button"
+                              className="button ghost small"
+                              onClick={() => handleRestore(item)}
+                            >
+                              Restore settings
+                            </button>
                           </div>
                         </div>
                       ))}
