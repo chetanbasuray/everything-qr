@@ -49,7 +49,7 @@ const ColorSwatchPicker = ({
   )
 }
 
-const SegmentedControl = <T extends string>({
+const TileControl = <T extends string>({
   label,
   value,
   options,
@@ -60,18 +60,18 @@ const SegmentedControl = <T extends string>({
   options: { value: T; label: string; glyph: string }[]
   onChange: (next: T) => void
 }) => (
-  <div className="segmented-field">
+  <div className="tile-field">
     <span>{label}</span>
-    <div className="segmented">
+    <div className="tile-grid">
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
-          className={value === option.value ? 'segment active' : 'segment'}
+          className={value === option.value ? 'tile active' : 'tile'}
           onClick={() => onChange(option.value)}
         >
-          <span className="segment-glyph">{option.glyph}</span>
-          {option.label}
+          <span className="tile-glyph">{option.glyph}</span>
+          <span>{option.label}</span>
         </button>
       ))}
     </div>
@@ -106,7 +106,7 @@ const StyleController = ({ values, onChange }: StyleControllerProps) => (
       />
     </div>
 
-    <SegmentedControl
+    <TileControl
       label="Module style"
       value={values.moduleStyle}
       onChange={(next) => onChange({ moduleStyle: next })}
@@ -120,7 +120,7 @@ const StyleController = ({ values, onChange }: StyleControllerProps) => (
       ]}
     />
 
-    <SegmentedControl
+    <TileControl
       label="Corner style"
       value={values.cornerStyle}
       onChange={(next) => onChange({ cornerStyle: next })}
@@ -130,7 +130,7 @@ const StyleController = ({ values, onChange }: StyleControllerProps) => (
       ]}
     />
 
-    <SegmentedControl
+    <TileControl
       label="Eye style"
       value={values.eyeStyle}
       onChange={(next) => onChange({ eyeStyle: next })}

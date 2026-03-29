@@ -6,41 +6,21 @@ import type {
   DotType,
   Options,
 } from 'qr-code-styling'
-import QrScanner from 'qr-scanner'
-import qrWorkerPath from 'qr-scanner/qr-scanner-worker.min.js?url'
 import { buildPayload, getDefaultValues, qrTypes } from './lib/qrTypes'
 import StyleController, { type StyleValues } from './components/StyleController'
-
-QrScanner.WORKER_PATH = qrWorkerPath
+import ActionCard from './components/ActionCard'
 
 const errorLevels = ['L', 'M', 'Q', 'H'] as const
-
-type ScanStatus = 'idle' | 'starting' | 'scanning' | 'paused' | 'error'
-
-type ScanResult = {
-  data: string
-  timestamp: string
-}
-
-type CameraOption = {
-  id: string
-  label: string
-}
-
-const formatTimestamp = (value: number) =>
-  new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(value)
 
 const createDownloadName = (typeId: string) =>
   `everything-qr-${typeId}-${new Date().toISOString().slice(0, 10)}.png`
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'generate' | 'scan' | 'library'>(
+  const [activeTab, setActiveTab] = useState<'generate' | 'scan' | 'history'>(
     'generate'
   )
   const [navCollapsed, setNavCollapsed] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
   const [qrTypeId, setQrTypeId] = useState(qrTypes[0].id)
   const [values, setValues] = useState<Record<string, string>>(() =>
     getDefaultValues(qrTypes[0].id)
@@ -57,22 +37,10 @@ function App() {
   const [eyeStyle, setEyeStyle] = useState<CornerDotType>('square')
   const qrCanvasRef = useRef<HTMLDivElement | null>(null)
   const qrStylingRef = useRef<QRCodeStyling | null>(null)
-
-  const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
-  const [scanError, setScanError] = useState('')
-  const [scanResults, setScanResults] = useState<ScanResult[]>([])
-  const [isCameraOn, setIsCameraOn] = useState(false)
-  const [hasCamera, setHasCamera] = useState<boolean | null>(null)
-  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>(
-    'environment'
-  )
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
-  const [availableCameras, setAvailableCameras] = useState<CameraOption[]>([])
-  const [activeCameraId, setActiveCameraId] = useState<string | null>(null)
-
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const scannerRef = useRef<QrScanner | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [historyItems, setHistoryItems] = useState<
+    { id: string; payload: string; dataUrl: string; createdAt: number }[]
+  >([])
 
   const selectedType = useMemo(
     () => qrTypes.find((type) => type.id === qrTypeId) ?? qrTypes[0],
@@ -91,6 +59,53 @@ function App() {
     () => (missingRequired.length ? '' : buildPayload(qrTypeId, values)),
     [missingRequired.length, qrTypeId, values]
   )
+
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem('qrstudio-theme')
+    if (storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'system') {
+      setTheme(storedTheme)
+    }
+  }, [])
+
+  useEffect(() => {
+    const root = document.documentElement
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)')
+    const applyTheme = (next: 'light' | 'dark' | 'system') => {
+      if (next === 'system') {
+        root.dataset.theme = prefersDark.matches ? 'dark' : 'light'
+      } else {
+        root.dataset.theme = next
+      }
+    }
+
+    applyTheme(theme)
+    window.localStorage.setItem('qrstudio-theme', theme)
+
+    const listener = (event: MediaQueryListEvent) => {
+      if (theme === 'system') {
+        root.dataset.theme = event.matches ? 'dark' : 'light'
+      }
+    }
+
+    prefersDark.addEventListener('change', listener)
+    return () => prefersDark.removeEventListener('change', listener)
+  }, [theme])
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem('qrstudio-history')
+    if (!stored) return
+    try {
+      const parsed = JSON.parse(stored) as {
+        id: string
+        payload: string
+        dataUrl: string
+        createdAt: number
+      }[]
+      setHistoryItems(parsed)
+    } catch (error) {
+      setHistoryItems([])
+    }
+  }, [])
 
   useEffect(() => {
     setValues(getDefaultValues(qrTypeId))
@@ -151,106 +166,47 @@ function App() {
   ])
 
   useEffect(() => {
-    QrScanner.hasCamera()
-      .then((result) => setHasCamera(result))
-      .catch(() => setHasCamera(false))
-  }, [])
-
-  useEffect(() => {
-    if (!isCameraOn) return
-    QrScanner.listCameras(true)
-      .then((cameras) => {
-        const list = cameras.map((camera) => ({
-          id: camera.id,
-          label: camera.label || `Camera ${camera.id.slice(0, 4)}`,
-        }))
-        setAvailableCameras(list)
-        if (!activeCameraId && list.length > 0) {
-          setActiveCameraId(list[0].id)
+    if (!payload || !qrStylingRef.current) return
+    const timer = window.setTimeout(async () => {
+      try {
+        const raw = await qrStylingRef.current?.getRawData('png')
+        if (!raw) return
+        const blob =
+          raw instanceof Blob
+            ? raw
+            : new Blob([raw as unknown as ArrayBuffer], { type: 'image/png' })
+        const reader = new FileReader()
+        reader.onload = () => {
+          const dataUrl = String(reader.result || '')
+          setHistoryItems((prev) => {
+            if (!dataUrl) return prev
+            const nextItem = {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              payload,
+              dataUrl,
+              createdAt: Date.now(),
+            }
+            const merged = [nextItem, ...prev.filter((item) => item.payload !== payload)]
+            const trimmed = merged.slice(0, 12)
+            window.localStorage.setItem('qrstudio-history', JSON.stringify(trimmed))
+            return trimmed
+          })
         }
-      })
-      .catch(() => setAvailableCameras([]))
-  }, [isCameraOn, activeCameraId])
-
-  useEffect(() => {
-    if (!isCameraOn || !videoRef.current) {
-      scannerRef.current?.stop()
-      setScanStatus('paused')
-      return
-    }
-
-    setScanStatus('starting')
-    setScanError('')
-
-    const scanner = new QrScanner(
-      videoRef.current,
-      (result) => {
-        setScanResults((prev) => [
-          {
-            data: result.data,
-            timestamp: formatTimestamp(Date.now()),
-          },
-          ...prev,
-        ])
-      },
-      {
-        highlightScanRegion: true,
-        highlightCodeOutline: true,
-        maxScansPerSecond: 6,
+        reader.readAsDataURL(blob)
+      } catch (error) {
+        // ignore history errors
       }
-    )
+    }, 800)
 
-    scannerRef.current = scanner
+    return () => window.clearTimeout(timer)
+  }, [payload, moduleStyle, cornerStyle, eyeStyle, darkColor, lightColor])
 
-    const selectedCamera = activeCameraId ?? cameraFacing
-
-    scanner
-      .setCamera(selectedCamera)
-      .then(() => scanner.start())
-      .then(() => setScanStatus('scanning'))
-      .catch(() => scanner.start())
-      .then(() => setScanStatus('scanning'))
-      .catch((error: Error) => {
-        setScanError(error.message)
-        setScanStatus('error')
-      })
-
-    return () => {
-      scanner.stop()
-      scanner.destroy()
-      scannerRef.current = null
-    }
-  }, [isCameraOn, cameraFacing, activeCameraId])
 
   const updateValue = (id: string, value: string) => {
     setValues((prev) => ({
       ...prev,
       [id]: value,
     }))
-  }
-
-  const handleScanImage = async (file: File) => {
-    setScanError('')
-    try {
-      const result = await QrScanner.scanImage(file, {
-        returnDetailedScanResult: true,
-      })
-      setScanResults((prev) => [
-        {
-          data: result.data,
-          timestamp: formatTimestamp(Date.now()),
-        },
-        ...prev,
-      ])
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to scan.'
-      setScanError(message)
-    }
-  }
-
-  const resetScanner = () => {
-    setScanResults([])
-    setScanError('')
   }
 
   const handleCopy = async () => {
@@ -318,7 +274,7 @@ function App() {
       </header>
 
       <main className="main">
-        <div className="layout three-col">
+        <div className="layout">
           <aside className={navCollapsed ? 'nav-rail collapsed' : 'nav-rail'}>
             <button
               type="button"
@@ -360,17 +316,40 @@ function App() {
             </button>
             <button
               type="button"
-              className={activeTab === 'library' ? 'rail-item active' : 'rail-item'}
-              onClick={() => setActiveTab('library')}
-              aria-label="Library"
+              className={activeTab === 'history' ? 'rail-item active' : 'rail-item'}
+              onClick={() => setActiveTab('history')}
+              aria-label="History"
             >
               <span className="rail-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
-                  <rect x="4" y="4" width="6" height="16" rx="2" />
-                  <rect x="14" y="4" width="6" height="10" rx="2" />
+                  <path d="M12 6v6l4 2" />
+                  <path d="M3 12a9 9 0 1 0 3-6" />
                 </svg>
               </span>
-              <span className="rail-label">Library</span>
+              <span className="rail-label">History</span>
+            </button>
+            <button
+              type="button"
+              className="rail-item rail-theme"
+              onClick={() =>
+                setTheme((prev) =>
+                  prev === 'light' ? 'dark' : prev === 'dark' ? 'system' : 'light'
+                )
+              }
+              aria-label="Toggle theme"
+            >
+              <span className="rail-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  {theme === 'dark' ? (
+                    <path d="M21 14.5A9 9 0 1 1 9.5 3 7 7 0 0 0 21 14.5z" />
+                  ) : (
+                    <circle cx="12" cy="12" r="5" />
+                  )}
+                </svg>
+              </span>
+              <span className="rail-label">
+                {theme === 'system' ? 'System' : theme === 'dark' ? 'Dark' : 'Light'}
+              </span>
             </button>
           </aside>
 
@@ -384,134 +363,134 @@ function App() {
                   </div>
                 </div>
                 <div className="generator-layout">
-                  <div className="type-row">
-                    <div className="type-row-scroll">
-                      {qrTypes.map((type) => (
-                        <button
-                          key={type.id}
-                          type="button"
-                          className={
-                            qrTypeId === type.id ? 'type-pill active' : 'type-pill'
-                          }
-                          onClick={() => setQrTypeId(type.id)}
-                        >
-                          {type.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="section">
-                    <h4>Details</h4>
-                    <div className="form">
-                      {selectedType.fields.map((field) => (
-                        <label key={field.id} className="field">
-                          <span>
-                            {field.label}
-                            {field.required ? <em>Required</em> : null}
-                          </span>
-                          {field.type === 'textarea' ? (
-                            <textarea
-                              value={values[field.id] || ''}
-                              placeholder={field.placeholder}
-                              onChange={(event) =>
-                                updateValue(field.id, event.target.value)
-                              }
-                            />
-                          ) : field.type === 'select' ? (
-                            <select
-                              value={values[field.id] || ''}
-                              onChange={(event) =>
-                                updateValue(field.id, event.target.value)
-                              }
-                            >
-                              {field.options?.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                          ) : field.type === 'checkbox' ? (
+                  <div className="generate-split">
+                    <div className="config-column">
+                      <div className="type-row">
+                        <div className="type-row-scroll">
+                          {qrTypes.map((type) => (
                             <button
+                              key={type.id}
                               type="button"
                               className={
-                                values[field.id] === 'true' ? 'toggle active' : 'toggle'
+                                qrTypeId === type.id ? 'type-pill active' : 'type-pill'
                               }
-                              onClick={() =>
-                                updateValue(
-                                  field.id,
-                                  values[field.id] === 'true' ? 'false' : 'true'
-                                )
-                              }
+                              onClick={() => setQrTypeId(type.id)}
                             >
-                              {values[field.id] === 'true' ? 'Yes' : 'No'}
+                              {type.label}
                             </button>
-                          ) : (
-                            <input
-                              type={field.type}
-                              value={values[field.id] || ''}
-                              placeholder={field.placeholder}
-                              onChange={(event) =>
-                                updateValue(field.id, event.target.value)
-                              }
-                            />
-                          )}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="config-style-grid">
-                    <div className="section">
-                      <h4>Style</h4>
-                      <StyleController values={styleValues} onChange={handleStyleChange} />
-                    </div>
-
-                    <div className="preview-card sticky-preview">
-                      <div className="preview-header">
-                        <div>
-                          <h3>Preview</h3>
-                          <p className="muted">
-                            {payload ? payload.slice(0, 64) : 'Waiting for data'}
-                          </p>
-                        </div>
-                        <div className="preview-actions">
-                          <button
-                            className="button ghost"
-                            type="button"
-                            disabled={!payload}
-                            onClick={handleCopy}
-                          >
-                            {copyStatus === 'copied' ? 'Copied' : 'Copy'}
-                          </button>
-                          <button
-                            className="button primary"
-                            type="button"
-                            disabled={!payload}
-                            onClick={() =>
-                              qrStylingRef.current?.download({
-                                name: createDownloadName(qrTypeId).replace('.png', ''),
-                                extension: 'png',
-                              })
-                            }
-                          >
-                            Download QR
-                          </button>
+                          ))}
                         </div>
                       </div>
-                      {missingRequired.length > 0 ? (
-                        <div className="notice">
-                          Fill the required fields to generate a QR.
+
+                      <div className="section">
+                        <h4>Details</h4>
+                        <div className="form">
+                          {selectedType.fields.map((field) => (
+                            <label key={field.id} className="field">
+                              <span>
+                                {field.label}
+                                {field.required ? <em>Required</em> : null}
+                              </span>
+                              {field.type === 'textarea' ? (
+                                <textarea
+                                  value={values[field.id] || ''}
+                                  placeholder={field.placeholder}
+                                  onChange={(event) =>
+                                    updateValue(field.id, event.target.value)
+                                  }
+                                />
+                              ) : field.type === 'select' ? (
+                                <select
+                                  value={values[field.id] || ''}
+                                  onChange={(event) =>
+                                    updateValue(field.id, event.target.value)
+                                  }
+                                >
+                                  {field.options?.map((option) => (
+                                    <option key={option} value={option}>
+                                      {option}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : field.type === 'checkbox' ? (
+                                <button
+                                  type="button"
+                                  className={
+                                    values[field.id] === 'true'
+                                      ? 'toggle active'
+                                      : 'toggle'
+                                  }
+                                  onClick={() =>
+                                    updateValue(
+                                      field.id,
+                                      values[field.id] === 'true' ? 'false' : 'true'
+                                    )
+                                  }
+                                >
+                                  {values[field.id] === 'true' ? 'Yes' : 'No'}
+                                </button>
+                              ) : (
+                                <input
+                                  type={field.type}
+                                  value={values[field.id] || ''}
+                                  placeholder={field.placeholder}
+                                  onChange={(event) =>
+                                    updateValue(field.id, event.target.value)
+                                  }
+                                />
+                              )}
+                            </label>
+                          ))}
                         </div>
-                      ) : payload ? (
-                        <div ref={qrCanvasRef} className="qr-canvas" />
-                      ) : (
-                        <div className="empty">Fill the form to generate a QR.</div>
-                      )}
-                      <p className="muted small">
-                        Styles render live in the preview. Keep contrast high for
-                        best scanning.
-                      </p>
+                      </div>
+
+                      <div className="section">
+                        <h4>Style</h4>
+                        <StyleController values={styleValues} onChange={handleStyleChange} />
+                      </div>
+                    </div>
+
+                    <div className="preview-column">
+                      <ActionCard
+                        title="Live Preview"
+                        description={payload ? payload.slice(0, 64) : 'Waiting for data'}
+                        className="sticky-preview"
+                        actions={
+                          <div className="preview-actions">
+                            <button
+                              className="button secondary"
+                              type="button"
+                              disabled={!payload}
+                              onClick={handleCopy}
+                            >
+                              {copyStatus === 'copied' ? 'Copied' : 'Copy'}
+                            </button>
+                            <button
+                              className="button primary"
+                              type="button"
+                              disabled={!payload}
+                              onClick={() =>
+                                qrStylingRef.current?.download({
+                                  name: createDownloadName(qrTypeId).replace('.png', ''),
+                                  extension: 'png',
+                                })
+                              }
+                            >
+                              Download
+                            </button>
+                          </div>
+                        }
+                      >
+                        {missingRequired.length > 0 ? (
+                          <div className="notice">
+                            Fill the required fields to generate a QR.
+                          </div>
+                        ) : payload ? (
+                          <div ref={qrCanvasRef} className="qr-canvas" />
+                        ) : (
+                          <div className="empty">Fill the form to generate a QR.</div>
+                        )}
+                      </ActionCard>
                     </div>
                   </div>
                 </div>
@@ -526,37 +505,32 @@ function App() {
                     <p>Scanning tools are being polished for the next release.</p>
                   </div>
                 </div>
-                <div className="empty-state">
-                  <div className="empty-card">
-                    <h3>Coming Soon</h3>
-                    <p className="muted">
-                      Camera scanning, history, and export controls are on the way.
-                    </p>
-                  </div>
-                </div>
+                <ActionCard title="Coming Soon" description="Camera tools are on the way.">
+                  <div className="empty">Scanning will land in the next release.</div>
+                </ActionCard>
               </section>
             )}
 
-            {activeTab === 'library' && (
+            {activeTab === 'history' && (
               <section className="panel">
                 <div className="panel-head">
                   <div>
-                    <h2>QR Type Library</h2>
-                    <p>
-                      This catalog lists the payload types supported today. Expand it
-                      in the roadmap as you add more standards.
-                    </p>
+                    <h2>History</h2>
+                    <p>Previously generated QR codes stored on this device.</p>
                   </div>
                 </div>
-                <div className="library">
-                  {qrTypes.map((type) => (
-                    <div key={type.id} className="library-card">
-                      <h3>{type.label}</h3>
-                      <p>{type.description}</p>
-                      <span>{type.fields.length} fields</span>
-                    </div>
-                  ))}
-                </div>
+                {historyItems.length === 0 ? (
+                  <div className="empty">No saved QR codes yet.</div>
+                ) : (
+                  <div className="history-grid">
+                    {historyItems.map((item) => (
+                      <div key={item.id} className="history-card">
+                        <img src={item.dataUrl} alt="QR code" />
+                        <p className="muted">{item.payload.slice(0, 64)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
           </section>
