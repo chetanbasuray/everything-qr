@@ -251,6 +251,11 @@ function App() {
     if (next.eyeStyle !== undefined) setEyeStyle(next.eyeStyle)
   }
 
+  const clearHistory = () => {
+    setHistoryItems([])
+    window.localStorage.removeItem('qrstudio-history')
+  }
+
   return (
     <div className="app">
       <header className="hero">
@@ -518,18 +523,55 @@ function App() {
                     <h2>History</h2>
                     <p>Previously generated QR codes stored on this device.</p>
                   </div>
+                  <div className="panel-actions">
+                    <div className="history-meta">
+                      <span className="muted">
+                        {historyItems.length} saved
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={historyItems.length === 0}
+                      onClick={clearHistory}
+                    >
+                      Clear history
+                    </button>
+                  </div>
                 </div>
                 {historyItems.length === 0 ? (
-                  <div className="empty">No saved QR codes yet.</div>
-                ) : (
-                  <div className="history-grid">
-                    {historyItems.map((item) => (
-                      <div key={item.id} className="history-card">
-                        <img src={item.dataUrl} alt="QR code" />
-                        <p className="muted">{item.payload.slice(0, 64)}</p>
-                      </div>
-                    ))}
+                  <div className="empty-card">
+                    <strong>No saved QR codes yet.</strong>
+                    <span className="muted">
+                      Create a QR on the Generate tab and we will keep the most recent
+                      ones here automatically.
+                    </span>
                   </div>
+                ) : (
+                  <>
+                    <div className="history-toolbar">
+                      <span className="muted">
+                        Showing the latest {Math.min(12, historyItems.length)} QR codes.
+                      </span>
+                    </div>
+                    <div className="history-grid">
+                      {historyItems.map((item) => (
+                        <div key={item.id} className="history-card">
+                          <div className="history-preview">
+                            <img src={item.dataUrl} alt="QR code" />
+                          </div>
+                          <div className="history-content">
+                            <p className="history-title">
+                              {item.payload.slice(0, 56)}
+                            </p>
+                            <span className="muted small">
+                              {new Date(item.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </section>
             )}
