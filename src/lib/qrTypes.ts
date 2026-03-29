@@ -1,3 +1,5 @@
+import { urlSchemeRegex } from '../regexes'
+
 export type QrFieldType =
   | 'text'
   | 'textarea'
@@ -41,6 +43,12 @@ const toIsoDate = (date: string, time?: string) => {
   return `${date.replaceAll('-', '')}T${safeTime}Z`
 }
 
+const normalizeUrl = (value: string) => {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  return urlSchemeRegex.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
 export const qrTypes: QrTypeDefinition[] = [
   {
     id: 'text',
@@ -70,7 +78,7 @@ export const qrTypes: QrTypeDefinition[] = [
         required: true,
       },
     ],
-    build: (values) => values.url || '',
+    build: (values) => normalizeUrl(values.url || ''),
   },
   {
     id: 'wifi',
@@ -180,7 +188,7 @@ export const qrTypes: QrTypeDefinition[] = [
       const title = escapeValue(values.title || '')
       const phone = escapeValue(values.phone || '')
       const email = escapeValue(values.email || '')
-      const website = escapeValue(values.website || '')
+      const website = escapeValue(normalizeUrl(values.website || ''))
       const address = escapeValue(values.address || '')
       const lines = [
         'BEGIN:VCARD',
