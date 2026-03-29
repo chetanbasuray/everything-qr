@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import QRCodeStyling from 'qr-code-styling'
+import type {
+  CornerDotType,
+  CornerSquareType,
+  DotType,
+  Options,
+} from 'qr-code-styling'
 import QrScanner from 'qr-scanner'
 import qrWorkerPath from 'qr-scanner/qr-scanner-worker.min.js?url'
 import { buildPayload, getDefaultValues, qrTypes } from './lib/qrTypes'
@@ -44,9 +50,9 @@ function App() {
   )
   const [darkColor, setDarkColor] = useState('#0f172a')
   const [lightColor, setLightColor] = useState('#ffffff')
-  const [moduleStyle, setModuleStyle] = useState('square')
-  const [cornerStyle, setCornerStyle] = useState('square')
-  const [eyeStyle, setEyeStyle] = useState('square')
+  const [moduleStyle, setModuleStyle] = useState<DotType>('square')
+  const [cornerStyle, setCornerStyle] = useState<CornerSquareType>('square')
+  const [eyeStyle, setEyeStyle] = useState<CornerDotType>('square')
   const qrCanvasRef = useRef<HTMLDivElement | null>(null)
   const qrStylingRef = useRef<QRCodeStyling | null>(null)
 
@@ -95,7 +101,7 @@ function App() {
       return
     }
 
-    const options = {
+    const options: Partial<Options> = {
       width: size,
       height: size,
       type: 'svg' as const,
@@ -487,7 +493,9 @@ function App() {
                         <span>Module style</span>
                         <select
                           value={moduleStyle}
-                          onChange={(event) => setModuleStyle(event.target.value)}
+                      onChange={(event) =>
+                        setModuleStyle(event.target.value as DotType)
+                      }
                         >
                       <option value="square">Square</option>
                       <option value="rounded">Rounded</option>
@@ -501,7 +509,9 @@ function App() {
                         <span>Corner style</span>
                         <select
                           value={cornerStyle}
-                          onChange={(event) => setCornerStyle(event.target.value)}
+                      onChange={(event) =>
+                        setCornerStyle(event.target.value as CornerSquareType)
+                      }
                         >
                       <option value="square">Square</option>
                       <option value="extra-rounded">Extra Rounded</option>
@@ -509,7 +519,12 @@ function App() {
                       </label>
                       <label className="field">
                         <span>Eye style</span>
-                        <select value={eyeStyle} onChange={(event) => setEyeStyle(event.target.value)}>
+                    <select
+                      value={eyeStyle}
+                      onChange={(event) =>
+                        setEyeStyle(event.target.value as CornerDotType)
+                      }
+                    >
                       <option value="square">Square</option>
                       <option value="dot">Dot</option>
                         </select>
