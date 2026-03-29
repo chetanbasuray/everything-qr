@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import QRCode from 'qrcode'
+import QRCodeStyling from 'qr-code-styling'
 import QrScanner from 'qr-scanner'
 import qrWorkerPath from 'qr-scanner/qr-scanner-worker.min.js?url'
 import { buildPayload, getDefaultValues, qrTypes } from './lib/qrTypes'
@@ -47,8 +47,8 @@ function App() {
   const [moduleStyle, setModuleStyle] = useState('square')
   const [cornerStyle, setCornerStyle] = useState('square')
   const [eyeStyle, setEyeStyle] = useState('square')
-  const [qrDataUrl, setQrDataUrl] = useState('')
-  const [qrError, setQrError] = useState('')
+  const qrCanvasRef = useRef<HTMLDivElement | null>(null)
+  const qrStylingRef = useRef<QRCodeStyling | null>(null)
 
   const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
   const [scanError, setScanError] = useState('')
@@ -88,39 +88,58 @@ function App() {
   }, [qrTypeId])
 
   useEffect(() => {
-    let cancelled = false
+    if (!qrCanvasRef.current) return
+
     if (!payload) {
-      setQrDataUrl('')
-      setQrError('')
+      qrCanvasRef.current.innerHTML = ''
       return
     }
 
-    QRCode.toDataURL(payload, {
-      errorCorrectionLevel: errorLevel,
-      margin,
+    const options = {
       width: size,
-      color: {
-        dark: darkColor,
-        light: lightColor,
+      height: size,
+      type: 'svg' as const,
+      data: payload,
+      margin,
+      qrOptions: {
+        errorCorrectionLevel: errorLevel,
       },
-    })
-      .then((url: string) => {
-        if (!cancelled) {
-          setQrDataUrl(url)
-          setQrError('')
-        }
-      })
-      .catch((error: Error) => {
-        if (!cancelled) {
-          setQrError(error.message)
-          setQrDataUrl('')
-        }
-      })
-
-    return () => {
-      cancelled = true
+      dotsOptions: {
+        color: darkColor,
+        type: moduleStyle,
+      },
+      cornersSquareOptions: {
+        color: darkColor,
+        type: cornerStyle,
+      },
+      cornersDotOptions: {
+        color: darkColor,
+        type: eyeStyle,
+      },
+      backgroundOptions: {
+        color: lightColor,
+      },
     }
-  }, [payload, size, margin, errorLevel, darkColor, lightColor])
+
+    if (!qrStylingRef.current) {
+      qrStylingRef.current = new QRCodeStyling(options)
+    } else {
+      qrStylingRef.current.update(options)
+    }
+
+    qrCanvasRef.current.innerHTML = ''
+    qrStylingRef.current.append(qrCanvasRef.current)
+  }, [
+    payload,
+    size,
+    margin,
+    errorLevel,
+    darkColor,
+    lightColor,
+    moduleStyle,
+    cornerStyle,
+    eyeStyle,
+  ])
 
   useEffect(() => {
     QrScanner.hasCamera()
@@ -470,10 +489,12 @@ function App() {
                           value={moduleStyle}
                           onChange={(event) => setModuleStyle(event.target.value)}
                         >
-                          <option value="square">Square</option>
-                          <option value="rounded">Rounded</option>
-                          <option value="dot">Dot</option>
-                          <option value="line">Line</option>
+                      <option value="square">Square</option>
+                      <option value="rounded">Rounded</option>
+                      <option value="dots">Dots</option>
+                      <option value="extra-rounded">Extra Rounded</option>
+                      <option value="classy">Classy</option>
+                      <option value="classy-rounded">Classy Rounded</option>
                         </select>
                       </label>
                       <label className="field">
@@ -482,17 +503,15 @@ function App() {
                           value={cornerStyle}
                           onChange={(event) => setCornerStyle(event.target.value)}
                         >
-                          <option value="square">Square</option>
-                          <option value="rounded">Rounded</option>
-                          <option value="circle">Circle</option>
+                      <option value="square">Square</option>
+                      <option value="extra-rounded">Extra Rounded</option>
                         </select>
                       </label>
                       <label className="field">
                         <span>Eye style</span>
                         <select value={eyeStyle} onChange={(event) => setEyeStyle(event.target.value)}>
-                          <option value="square">Square</option>
-                          <option value="rounded">Rounded</option>
-                          <option value="dot">Dot</option>
+                      <option value="square">Square</option>
+                      <option value="dot">Dot</option>
                         </select>
                       </label>
                     </div>
@@ -505,35 +524,32 @@ function App() {
                           <h3>Preview</h3>
                           <p>Payload: {payload ? payload.slice(0, 64) : '—'}</p>
                         </div>
-                        {qrDataUrl ? (
-                          <a
-                            className="button"
-                            href={qrDataUrl}
-                            download={createDownloadName(qrTypeId)}
-                          >
-                            Download PNG
-                          </a>
-                        ) : (
-                          <button className="button" type="button" disabled>
-                            Download PNG
-                          </button>
-                        )}
+                        <button
+                          className="button"
+                          type="button"
+                          disabled={!payload}
+                          onClick={() =>
+                            qrStylingRef.current?.download({
+                              name: createDownloadName(qrTypeId).replace('.png', ''),
+                              extension: 'png',
+                            })
+                          }
+                        >
+                          Download PNG
+                        </button>
                       </div>
                       {missingRequired.length > 0 ? (
                         <div className="notice">
                           Fill the required fields to generate a QR.
                         </div>
-                      ) : qrError ? (
-                        <div className="notice error">{qrError}</div>
-                      ) : qrDataUrl ? (
-                        <img src={qrDataUrl} alt="Generated QR" />
+                      ) : payload ? (
+                        <div ref={qrCanvasRef} className="qr-canvas" />
                       ) : (
                         <div className="empty">Fill the form to generate a QR.</div>
                       )}
                       <p className="muted small">
-                        Module, corner, and eye styles are configurable and will be
-                        rendered in a future styling engine. Current exports use
-                        square modules by default.
+                        Module, corner, and eye styles render directly in the
+                        preview. Use high contrast for maximum scan reliability.
                       </p>
                     </div>
                     <div className="preview-card meta">

@@ -435,6 +435,22 @@ textarea:focus {
   border: 1px dashed var(--border);
 }
 
+.qr-canvas {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px dashed var(--border);
+  background: #ffffff;
+}
+
+.qr-canvas svg,
+.qr-canvas canvas {
+  max-width: 100%;
+  height: auto;
+}
+
 .preview-header {
   display: flex;
   justify-content: space-between;
