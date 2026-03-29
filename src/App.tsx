@@ -42,6 +42,11 @@ function App() {
   const [errorLevel, setErrorLevel] = useState<(typeof errorLevels)[number]>(
     'M'
   )
+  const [darkColor, setDarkColor] = useState('#0f172a')
+  const [lightColor, setLightColor] = useState('#ffffff')
+  const [moduleStyle, setModuleStyle] = useState('square')
+  const [cornerStyle, setCornerStyle] = useState('square')
+  const [eyeStyle, setEyeStyle] = useState('square')
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [qrError, setQrError] = useState('')
 
@@ -94,6 +99,10 @@ function App() {
       errorCorrectionLevel: errorLevel,
       margin,
       width: size,
+      color: {
+        dark: darkColor,
+        light: lightColor,
+      },
     })
       .then((url: string) => {
         if (!cancelled) {
@@ -111,7 +120,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [payload, size, margin, errorLevel])
+  }, [payload, size, margin, errorLevel, darkColor, lightColor])
 
   useEffect(() => {
     QrScanner.hasCamera()
@@ -295,28 +304,42 @@ function App() {
               <div>
                 <h2>Generate QR Codes</h2>
                 <p>
-                  Choose a QR type, fill the fields, and export a ready-to-use
-                  image.
+                  Pick a QR type, complete the details, and export instantly.
                 </p>
-              </div>
-              <div className="panel-actions">
-                <label className="field">
-                  <span>Type</span>
-                  <select
-                    value={qrTypeId}
-                    onChange={(event) => setQrTypeId(event.target.value)}
-                  >
-                    {qrTypes.map((type) => (
-                      <option key={type.id} value={type.id}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
             </div>
             <div className="panel-body">
               <div className="form">
+                <div className="type-picker">
+                  <div className="type-picker-head">
+                    <div>
+                      <h3>Choose a QR type</h3>
+                      <p className="muted">
+                        Tap a card to switch formats. Defaults are selected for
+                        you.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="type-grid">
+                    {qrTypes.map((type) => (
+                      <button
+                        key={type.id}
+                        type="button"
+                        className={
+                          qrTypeId === type.id ? 'type-card active' : 'type-card'
+                        }
+                        onClick={() => setQrTypeId(type.id)}
+                      >
+                        <div>
+                          <strong>{type.label}</strong>
+                          <span>{type.description}</span>
+                        </div>
+                        <span className="type-meta">{type.fields.length} fields</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {selectedType.fields.map((field) => (
                   <label key={field.id} className="field">
                     <span>
@@ -407,6 +430,59 @@ function App() {
                     </select>
                   </label>
                 </div>
+
+                <div className="row">
+                  <label className="field">
+                    <span>Dark color</span>
+                    <input
+                      type="color"
+                      value={darkColor}
+                      onChange={(event) => setDarkColor(event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Light color</span>
+                    <input
+                      type="color"
+                      value={lightColor}
+                      onChange={(event) => setLightColor(event.target.value)}
+                    />
+                  </label>
+                </div>
+
+                <div className="row">
+                  <label className="field">
+                    <span>Module style</span>
+                    <select
+                      value={moduleStyle}
+                      onChange={(event) => setModuleStyle(event.target.value)}
+                    >
+                      <option value="square">Square</option>
+                      <option value="rounded">Rounded</option>
+                      <option value="dot">Dot</option>
+                      <option value="line">Line</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Corner style</span>
+                    <select
+                      value={cornerStyle}
+                      onChange={(event) => setCornerStyle(event.target.value)}
+                    >
+                      <option value="square">Square</option>
+                      <option value="rounded">Rounded</option>
+                      <option value="circle">Circle</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Eye style</span>
+                    <select value={eyeStyle} onChange={(event) => setEyeStyle(event.target.value)}>
+                      <option value="square">Square</option>
+                      <option value="rounded">Rounded</option>
+                      <option value="dot">Dot</option>
+                    </select>
+                  </label>
+                </div>
               </div>
 
               <div className="preview">
@@ -441,6 +517,11 @@ function App() {
                   ) : (
                     <div className="empty">Fill the form to generate a QR.</div>
                   )}
+                  <p className="muted small">
+                    Module, corner, and eye styles are configurable and will be
+                    rendered in a future styling engine. Current exports use
+                    square modules by default.
+                  </p>
                 </div>
                 <div className="preview-card meta">
                   <h3>Payload Inspector</h3>
@@ -597,12 +678,15 @@ function App() {
       </main>
 
       <footer className="footer">
-        <div>
+        <div className="footer-brand">
           <strong>QR Studio</strong>
+          <span className="muted">Professional QR tooling for modern teams.</span>
         </div>
-        <p>
-          Add new QR types and scanner features via the roadmap in the docs.
-        </p>
+        <div className="footer-links">
+          <span>Docs</span>
+          <span>Roadmap</span>
+          <span>Support</span>
+        </div>
       </footer>
     </div>
   )

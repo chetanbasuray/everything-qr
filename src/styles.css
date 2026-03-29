@@ -233,6 +233,62 @@ body {
   gap: 16px;
 }
 
+.type-picker {
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.type-picker-head h3 {
+  font-family: 'Sora', sans-serif;
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+}
+
+.type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.type-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  background: #ffffff;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.type-card strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.type-card span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.type-card .type-meta {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.type-card:hover,
+.type-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
+}
+
 .field {
   display: grid;
   gap: 8px;
@@ -455,6 +511,19 @@ button.toggle.active {
   font-weight: 600;
 }
 
+.footer-brand {
+  display: grid;
+  gap: 6px;
+}
+
+.footer-links {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-weight: 500;
+}
+
 .footer {
   padding: 24px 8vw 40px;
   display: flex;
@@ -473,6 +542,10 @@ button.toggle.active {
 
 .muted {
   color: var(--muted);
+}
+
+.small {
+  font-size: 0.85rem;
 }
 
 @keyframes floatIn {
