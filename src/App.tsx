@@ -268,427 +268,428 @@ function App() {
             </button>
           </nav>
         </div>
-        <h1>
-          The QR Studio for every workflow.
-          <span>Generate, scan, and ship QR experiences in minutes.</span>
-        </h1>
-        <div className="hero-stats">
-          <div>
-            <strong>12+</strong>
-            <span>Payload types</span>
-          </div>
-          <div>
-            <strong>Instant</strong>
-            <span>Live previews</span>
-          </div>
-          <div>
-            <strong>Camera</strong>
-            <span>Real-time scans</span>
-          </div>
-        </div>
-        <div className="hero-grid">
-          <div className="hero-card">
-            <h3>Generator</h3>
-            <p>
-              Build QR codes for links, Wi-Fi, contacts, events, and payments
-              with instant previews and export-ready assets.
-            </p>
-          </div>
-          <div className="hero-card">
-            <h3>Scanner</h3>
-            <p>
-              Use your camera or upload an image. Scan history is timestamped
-              and ready to copy or export.
-            </p>
-          </div>
-          <div className="hero-card">
-            <h3>Studio Ready</h3>
-            <p>
-              Designed for rapid iteration with clear forms, payload insights,
-              and a roadmap that welcomes contributors.
-            </p>
-          </div>
-        </div>
       </header>
 
       <main className="main">
-        {activeTab === 'generate' && (
-          <section className="panel">
-            <div className="panel-head">
-              <div>
-                <h2>Generate QR Codes</h2>
-                <p>
-                  Pick a QR type, complete the details, and export instantly.
-                </p>
+        <div className="layout">
+          <aside className="sidebar">
+            <div className="sidebar-card">
+              <h2>QR Studio</h2>
+              <p>
+                Build, scan, and manage QR experiences with a professional-grade
+                toolkit designed for teams.
+              </p>
+              <div className="sidebar-metrics">
+                <div>
+                  <strong>{qrTypes.length}</strong>
+                  <span>Payload types</span>
+                </div>
+                <div>
+                  <strong>Live</strong>
+                  <span>Preview + export</span>
+                </div>
+                <div>
+                  <strong>Secure</strong>
+                  <span>On-device scanning</span>
+                </div>
               </div>
             </div>
-            <div className="panel-body">
-              <div className="form">
-                <div className="type-picker">
-                  <div className="type-picker-head">
-                    <div>
-                      <h3>Choose a QR type</h3>
+            <div className="sidebar-card">
+              <h3>Workspace Tabs</h3>
+              <p className="muted">
+                Use the controls on the right to generate, scan, or browse the
+                QR library. Everything updates instantly.
+              </p>
+              <div className="sidebar-chips">
+                <span>Generate</span>
+                <span>Scan</span>
+                <span>Library</span>
+              </div>
+            </div>
+          </aside>
+
+          <section className="workspace">
+            {activeTab === 'generate' && (
+              <section className="panel">
+                <div className="panel-head">
+                  <div>
+                    <h2>Generate QR Codes</h2>
+                    <p>
+                      Pick a QR type, complete the details, and export instantly.
+                    </p>
+                  </div>
+                </div>
+                <div className="panel-body">
+                  <div className="form">
+                    <div className="type-picker">
+                      <div className="type-picker-head">
+                        <div>
+                          <h3>Choose a QR type</h3>
+                          <p className="muted">
+                            Tap a card to switch formats. Defaults are selected for
+                            you.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="type-grid">
+                        {qrTypes.map((type) => (
+                          <button
+                            key={type.id}
+                            type="button"
+                            className={
+                              qrTypeId === type.id ? 'type-card active' : 'type-card'
+                            }
+                            onClick={() => setQrTypeId(type.id)}
+                          >
+                            <div>
+                              <strong>{type.label}</strong>
+                              <span>{type.description}</span>
+                            </div>
+                            <span className="type-meta">{type.fields.length} fields</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {selectedType.fields.map((field) => (
+                      <label key={field.id} className="field">
+                        <span>
+                          {field.label}
+                          {field.required ? <em>Required</em> : null}
+                        </span>
+                        {field.type === 'textarea' ? (
+                          <textarea
+                            value={values[field.id] || ''}
+                            placeholder={field.placeholder}
+                            onChange={(event) =>
+                              updateValue(field.id, event.target.value)
+                            }
+                          />
+                        ) : field.type === 'select' ? (
+                          <select
+                            value={values[field.id] || ''}
+                            onChange={(event) =>
+                              updateValue(field.id, event.target.value)
+                            }
+                          >
+                            {field.options?.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        ) : field.type === 'checkbox' ? (
+                          <button
+                            type="button"
+                            className={
+                              values[field.id] === 'true' ? 'toggle active' : 'toggle'
+                            }
+                            onClick={() =>
+                              updateValue(
+                                field.id,
+                                values[field.id] === 'true' ? 'false' : 'true'
+                              )
+                            }
+                          >
+                            {values[field.id] === 'true' ? 'Yes' : 'No'}
+                          </button>
+                        ) : (
+                          <input
+                            type={field.type}
+                            value={values[field.id] || ''}
+                            placeholder={field.placeholder}
+                            onChange={(event) =>
+                              updateValue(field.id, event.target.value)
+                            }
+                          />
+                        )}
+                      </label>
+                    ))}
+
+                    <div className="row">
+                      <label className="field">
+                        <span>Size (px)</span>
+                        <input
+                          type="number"
+                          min={180}
+                          max={720}
+                          value={size}
+                          onChange={(event) => setSize(Number(event.target.value))}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Margin</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={8}
+                          value={margin}
+                          onChange={(event) => setMargin(Number(event.target.value))}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Error Correction</span>
+                        <select
+                          value={errorLevel}
+                          onChange={(event) =>
+                            setErrorLevel(event.target.value as typeof errorLevels[number])
+                          }
+                        >
+                          {errorLevels.map((level) => (
+                            <option key={level} value={level}>
+                              {level}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    <div className="row">
+                      <label className="field">
+                        <span>Dark color</span>
+                        <input
+                          type="color"
+                          value={darkColor}
+                          onChange={(event) => setDarkColor(event.target.value)}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Light color</span>
+                        <input
+                          type="color"
+                          value={lightColor}
+                          onChange={(event) => setLightColor(event.target.value)}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="row">
+                      <label className="field">
+                        <span>Module style</span>
+                        <select
+                          value={moduleStyle}
+                          onChange={(event) => setModuleStyle(event.target.value)}
+                        >
+                          <option value="square">Square</option>
+                          <option value="rounded">Rounded</option>
+                          <option value="dot">Dot</option>
+                          <option value="line">Line</option>
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>Corner style</span>
+                        <select
+                          value={cornerStyle}
+                          onChange={(event) => setCornerStyle(event.target.value)}
+                        >
+                          <option value="square">Square</option>
+                          <option value="rounded">Rounded</option>
+                          <option value="circle">Circle</option>
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>Eye style</span>
+                        <select value={eyeStyle} onChange={(event) => setEyeStyle(event.target.value)}>
+                          <option value="square">Square</option>
+                          <option value="rounded">Rounded</option>
+                          <option value="dot">Dot</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="preview">
+                    <div className="preview-card">
+                      <div className="preview-header">
+                        <div>
+                          <h3>Preview</h3>
+                          <p>Payload: {payload ? payload.slice(0, 64) : '—'}</p>
+                        </div>
+                        {qrDataUrl ? (
+                          <a
+                            className="button"
+                            href={qrDataUrl}
+                            download={createDownloadName(qrTypeId)}
+                          >
+                            Download PNG
+                          </a>
+                        ) : (
+                          <button className="button" type="button" disabled>
+                            Download PNG
+                          </button>
+                        )}
+                      </div>
+                      {missingRequired.length > 0 ? (
+                        <div className="notice">
+                          Fill the required fields to generate a QR.
+                        </div>
+                      ) : qrError ? (
+                        <div className="notice error">{qrError}</div>
+                      ) : qrDataUrl ? (
+                        <img src={qrDataUrl} alt="Generated QR" />
+                      ) : (
+                        <div className="empty">Fill the form to generate a QR.</div>
+                      )}
+                      <p className="muted small">
+                        Module, corner, and eye styles are configurable and will be
+                        rendered in a future styling engine. Current exports use
+                        square modules by default.
+                      </p>
+                    </div>
+                    <div className="preview-card meta">
+                      <h3>Payload Inspector</h3>
+                      <textarea value={payload} readOnly />
                       <p className="muted">
-                        Tap a card to switch formats. Defaults are selected for
-                        you.
+                        The payload string is available for developers to copy into
+                        their own workflows or APIs.
                       </p>
                     </div>
                   </div>
-                  <div className="type-grid">
-                    {qrTypes.map((type) => (
-                      <button
-                        key={type.id}
-                        type="button"
-                        className={
-                          qrTypeId === type.id ? 'type-card active' : 'type-card'
-                        }
-                        onClick={() => setQrTypeId(type.id)}
-                      >
-                        <div>
-                          <strong>{type.label}</strong>
-                          <span>{type.description}</span>
-                        </div>
-                        <span className="type-meta">{type.fields.length} fields</span>
-                      </button>
-                    ))}
-                  </div>
                 </div>
+              </section>
+            )}
 
-                {selectedType.fields.map((field) => (
-                  <label key={field.id} className="field">
-                    <span>
-                      {field.label}
-                      {field.required ? <em>Required</em> : null}
-                    </span>
-                    {field.type === 'textarea' ? (
-                      <textarea
-                        value={values[field.id] || ''}
-                        placeholder={field.placeholder}
-                        onChange={(event) =>
-                          updateValue(field.id, event.target.value)
-                        }
-                      />
-                    ) : field.type === 'select' ? (
-                      <select
-                        value={values[field.id] || ''}
-                        onChange={(event) =>
-                          updateValue(field.id, event.target.value)
-                        }
-                      >
-                        {field.options?.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    ) : field.type === 'checkbox' ? (
-                      <button
-                        type="button"
-                        className={values[field.id] === 'true' ? 'toggle active' : 'toggle'}
-                        onClick={() =>
-                          updateValue(
-                            field.id,
-                            values[field.id] === 'true' ? 'false' : 'true'
-                          )
-                        }
-                      >
-                        {values[field.id] === 'true' ? 'Yes' : 'No'}
-                      </button>
-                    ) : (
-                      <input
-                        type={field.type}
-                        value={values[field.id] || ''}
-                        placeholder={field.placeholder}
-                        onChange={(event) =>
-                          updateValue(field.id, event.target.value)
-                        }
-                      />
-                    )}
-                  </label>
-                ))}
-
-                <div className="row">
-                  <label className="field">
-                    <span>Size (px)</span>
-                    <input
-                      type="number"
-                      min={180}
-                      max={720}
-                      value={size}
-                      onChange={(event) => setSize(Number(event.target.value))}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Margin</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={8}
-                      value={margin}
-                      onChange={(event) => setMargin(Number(event.target.value))}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Error Correction</span>
-                    <select
-                      value={errorLevel}
-                      onChange={(event) =>
-                        setErrorLevel(event.target.value as typeof errorLevels[number])
+            {activeTab === 'scan' && (
+              <section className="panel">
+                <div className="panel-head">
+                  <div>
+                    <h2>Scan QR Codes</h2>
+                    <p>Open your camera or upload an image file to scan.</p>
+                  </div>
+                  <div className="panel-actions">
+                    <button
+                      type="button"
+                      className={isCameraOn ? 'button ghost active' : 'button ghost'}
+                      onClick={() => setIsCameraOn((prev) => !prev)}
+                    >
+                      {isCameraOn ? 'Stop Camera' : 'Start Camera'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button ghost"
+                      onClick={() =>
+                        setCameraFacing((prev) =>
+                          prev === 'environment' ? 'user' : 'environment'
+                        )
                       }
                     >
-                      {errorLevels.map((level) => (
-                        <option key={level} value={level}>
-                          {level}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <div className="row">
-                  <label className="field">
-                    <span>Dark color</span>
-                    <input
-                      type="color"
-                      value={darkColor}
-                      onChange={(event) => setDarkColor(event.target.value)}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Light color</span>
-                    <input
-                      type="color"
-                      value={lightColor}
-                      onChange={(event) => setLightColor(event.target.value)}
-                    />
-                  </label>
-                </div>
-
-                <div className="row">
-                  <label className="field">
-                    <span>Module style</span>
-                    <select
-                      value={moduleStyle}
-                      onChange={(event) => setModuleStyle(event.target.value)}
-                    >
-                      <option value="square">Square</option>
-                      <option value="rounded">Rounded</option>
-                      <option value="dot">Dot</option>
-                      <option value="line">Line</option>
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span>Corner style</span>
-                    <select
-                      value={cornerStyle}
-                      onChange={(event) => setCornerStyle(event.target.value)}
-                    >
-                      <option value="square">Square</option>
-                      <option value="rounded">Rounded</option>
-                      <option value="circle">Circle</option>
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span>Eye style</span>
-                    <select value={eyeStyle} onChange={(event) => setEyeStyle(event.target.value)}>
-                      <option value="square">Square</option>
-                      <option value="rounded">Rounded</option>
-                      <option value="dot">Dot</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-
-              <div className="preview">
-                <div className="preview-card">
-                  <div className="preview-header">
-                    <div>
-                      <h3>Preview</h3>
-                      <p>Payload: {payload ? payload.slice(0, 64) : '—'}</p>
-                    </div>
-                    {qrDataUrl ? (
-                      <a
-                        className="button"
-                        href={qrDataUrl}
-                        download={createDownloadName(qrTypeId)}
-                      >
-                        Download PNG
-                      </a>
-                    ) : (
-                      <button className="button" type="button" disabled>
-                        Download PNG
-                      </button>
-                    )}
+                      Flip Camera
+                    </button>
                   </div>
-                  {missingRequired.length > 0 ? (
-                    <div className="notice">
-                      Fill the required fields to generate a QR.
-                    </div>
-                  ) : qrError ? (
-                    <div className="notice error">{qrError}</div>
-                  ) : qrDataUrl ? (
-                    <img src={qrDataUrl} alt="Generated QR" />
-                  ) : (
-                    <div className="empty">Fill the form to generate a QR.</div>
-                  )}
-                  <p className="muted small">
-                    Module, corner, and eye styles are configurable and will be
-                    rendered in a future styling engine. Current exports use
-                    square modules by default.
-                  </p>
                 </div>
-                <div className="preview-card meta">
-                  <h3>Payload Inspector</h3>
-                  <textarea value={payload} readOnly />
-                  <p className="muted">
-                    The payload string is available for developers to copy into
-                    their own workflows or APIs.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {activeTab === 'scan' && (
-          <section className="panel">
-            <div className="panel-head">
-              <div>
-                <h2>Scan QR Codes</h2>
-                <p>Open your camera or upload an image file to scan.</p>
-              </div>
-              <div className="panel-actions">
-                <button
-                  type="button"
-                  className={isCameraOn ? 'button ghost active' : 'button ghost'}
-                  onClick={() => setIsCameraOn((prev) => !prev)}
-                >
-                  {isCameraOn ? 'Stop Camera' : 'Start Camera'}
-                </button>
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={() =>
-                    setCameraFacing((prev) =>
-                      prev === 'environment' ? 'user' : 'environment'
-                    )
-                  }
-                >
-                  Flip Camera
-                </button>
-              </div>
-            </div>
-            <div className="panel-body">
-              <div className="scanner">
-                <div className="scanner-stage">
-                  <video ref={videoRef} muted playsInline autoPlay />
-                  {hasCamera === false && (
-                    <div className="notice">No camera detected.</div>
-                  )}
-                  {scanStatus === 'starting' && (
-                    <div className="notice">Starting camera...</div>
-                  )}
-                  {scanStatus === 'paused' && (
-                    <div className="notice">Camera paused.</div>
-                  )}
-                  {scanStatus === 'error' && (
-                    <div className="notice error">
-                      Camera failed to start. Make sure the site has camera
-                      permissions and is served over HTTPS.
-                    </div>
-                  )}
-                </div>
-                {availableCameras.length > 1 && (
-                  <label className="field">
-                    <span>Camera</span>
-                    <select
-                      value={activeCameraId ?? ''}
-                      onChange={(event) => setActiveCameraId(event.target.value)}
-                    >
-                      {availableCameras.map((camera) => (
-                        <option key={camera.id} value={camera.id}>
-                          {camera.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                <div className="scanner-actions">
-                  <button
-                    type="button"
-                    className="button"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Scan Image
-                  </button>
-                  <button type="button" className="button ghost" onClick={resetScanner}>
-                    Clear Results
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={(event) => {
-                      const file = event.target.files?.[0]
-                      if (file) {
-                        void handleScanImage(file)
-                      }
-                      event.currentTarget.value = ''
-                    }}
-                  />
-                </div>
-                {scanError && <div className="notice error">{scanError}</div>}
-              </div>
-              <div className="results">
-                <h3>Results</h3>
-                {scanResults.length === 0 ? (
-                  <p className="muted">No scans yet. Results will appear here.</p>
-                ) : (
-                  <ul>
-                    {scanResults.map((result, index) => (
-                      <li key={`${result.timestamp}-${index}`}>
-                        <div>
-                          <strong>{result.timestamp}</strong>
-                          <span>{result.data}</span>
+                <div className="panel-body">
+                  <div className="scanner">
+                    <div className="scanner-stage">
+                      <video ref={videoRef} muted playsInline autoPlay />
+                      {hasCamera === false && (
+                        <div className="notice">No camera detected.</div>
+                      )}
+                      {scanStatus === 'starting' && (
+                        <div className="notice">Starting camera...</div>
+                      )}
+                      {scanStatus === 'paused' && (
+                        <div className="notice">Camera paused.</div>
+                      )}
+                      {scanStatus === 'error' && (
+                        <div className="notice error">
+                          Camera failed to start. Make sure the site has camera
+                          permissions and is served over HTTPS.
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => navigator.clipboard.writeText(result.data)}
+                      )}
+                    </div>
+                    {availableCameras.length > 1 && (
+                      <label className="field">
+                        <span>Camera</span>
+                        <select
+                          value={activeCameraId ?? ''}
+                          onChange={(event) => setActiveCameraId(event.target.value)}
                         >
-                          Copy
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {activeTab === 'library' && (
-          <section className="panel">
-            <div className="panel-head">
-              <div>
-                <h2>QR Type Library</h2>
-                <p>
-                  This catalog lists the payload types supported today. Expand it
-                  in the roadmap as you add more standards.
-                </p>
-              </div>
-            </div>
-            <div className="library">
-              {qrTypes.map((type) => (
-                <div key={type.id} className="library-card">
-                  <h3>{type.label}</h3>
-                  <p>{type.description}</p>
-                  <span>{type.fields.length} fields</span>
+                          {availableCameras.map((camera) => (
+                            <option key={camera.id} value={camera.id}>
+                              {camera.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <div className="scanner-actions">
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        Scan Image
+                      </button>
+                      <button type="button" className="button ghost" onClick={resetScanner}>
+                        Clear Results
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(event) => {
+                          const file = event.target.files?.[0]
+                          if (file) {
+                            void handleScanImage(file)
+                          }
+                          event.currentTarget.value = ''
+                        }}
+                      />
+                    </div>
+                    {scanError && <div className="notice error">{scanError}</div>}
+                  </div>
+                  <div className="results">
+                    <h3>Results</h3>
+                    {scanResults.length === 0 ? (
+                      <p className="muted">No scans yet. Results will appear here.</p>
+                    ) : (
+                      <ul>
+                        {scanResults.map((result, index) => (
+                          <li key={`${result.timestamp}-${index}`}>
+                            <div>
+                              <strong>{result.timestamp}</strong>
+                              <span>{result.data}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard.writeText(result.data)}
+                            >
+                              Copy
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
+              </section>
+            )}
+
+            {activeTab === 'library' && (
+              <section className="panel">
+                <div className="panel-head">
+                  <div>
+                    <h2>QR Type Library</h2>
+                    <p>
+                      This catalog lists the payload types supported today. Expand it
+                      in the roadmap as you add more standards.
+                    </p>
+                  </div>
+                </div>
+                <div className="library">
+                  {qrTypes.map((type) => (
+                    <div key={type.id} className="library-card">
+                      <h3>{type.label}</h3>
+                      <p>{type.description}</p>
+                      <span>{type.fields.length} fields</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </section>
-        )}
+        </div>
       </main>
 
       <footer className="footer">

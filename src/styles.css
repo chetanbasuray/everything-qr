@@ -181,8 +181,76 @@ body {
 }
 
 .main {
-  padding: 32px 8vw 56px;
+  padding: 24px 6vw 40px;
   flex: 1;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  min-height: calc(100vh - 280px);
+}
+
+.sidebar {
+  display: grid;
+  gap: 18px;
+  position: sticky;
+  top: 24px;
+  align-self: start;
+}
+
+.sidebar-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  box-shadow: var(--shadow);
+}
+
+.sidebar-card h2,
+.sidebar-card h3 {
+  font-family: 'Sora', sans-serif;
+}
+
+.sidebar-metrics {
+  display: grid;
+  gap: 12px;
+}
+
+.sidebar-metrics div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+}
+
+.sidebar-metrics span {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.sidebar-chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sidebar-chips span {
+  background: var(--panel-strong);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.workspace {
+  min-width: 0;
+  display: grid;
+  gap: 24px;
 }
 
 .panel {
@@ -562,6 +630,14 @@ button.toggle.active {
 @media (max-width: 900px) {
   .panel-body {
     grid-template-columns: 1fr;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
   }
 
   .hero {
