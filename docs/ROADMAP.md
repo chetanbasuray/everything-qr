@@ -2,6 +2,29 @@
 
 This roadmap lists every planned or potential capability for a full-spectrum QR studio. Each item can become its own GitHub issue.
 
+## Milestones
+
+### Milestone 1: The Utility Phase (Next 2 weeks)
+
+- [ ] Implement image/logo upload to QR center.
+- [ ] Add logo sizing and safe-zone controls.
+- [ ] Add SVG export option.
+- [ ] Add "Clear History" button to the Library/History tab.
+
+### Milestone 2: The Scanner Phase (Month 1)
+
+- [ ] Build out the Scan tab (Camera API integration).
+- [ ] Add drag-and-drop image upload to the Scan view.
+- [ ] Refine mobile responsiveness for the two-column layout (stack vertically).
+- [ ] Add camera torch/flash toggle for supported devices.
+
+### Milestone 3: The Pro Phase (Long-term)
+
+- [ ] Batch processing from CSV.
+- [ ] User accounts (sync history across devices via Firebase/Supabase).
+- [ ] Analytics (assuming dynamic QR codes).
+- [ ] Team workspaces with shared QR libraries.
+
 ## Core generator
 
 - Add dynamic sizing presets (badge, sticker, poster, signage)
