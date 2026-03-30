@@ -9,6 +9,7 @@ import type {
 import { buildPayload, getDefaultValues, qrTypes } from './lib/qrTypes'
 import StyleController, { type StyleValues } from './components/StyleController'
 import ActionCard from './components/ActionCard'
+import { Analytics } from '@vercel/analytics/react'
 
 const errorLevels = ['L', 'M', 'Q', 'H'] as const
 
@@ -590,6 +591,7 @@ function App() {
           <span>Support</span>
         </div>
       </footer>
+      <Analytics />
     </div>
   )
 }

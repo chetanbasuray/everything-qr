@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "qr-code-styling": "^1.6.0",
     "qr-scanner": "^1.4.2",
     "react": "^18.3.1",
