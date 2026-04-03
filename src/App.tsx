@@ -14,7 +14,7 @@ import { Analytics } from '@vercel/analytics/react'
 const errorLevels = ['L', 'M', 'Q', 'H'] as const
 
 const createDownloadName = (typeId: string) =>
-  `everything-qr-${typeId}-${new Date().toISOString().slice(0, 10)}.png`
+  `everything-qr-${typeId}-${new Date().toISOString().slice(0, 10)}`
 
 function App() {
   const [activeTab, setActiveTab] = useState<'generate' | 'scan' | 'history'>(
@@ -34,11 +34,12 @@ function App() {
   const [darkColor, setDarkColor] = useState('#0f172a')
   const [lightColor, setLightColor] = useState('#ffffff')
   const [moduleStyle, setModuleStyle] = useState<DotType>('square')
-  const [cornerStyle, setCornerStyle] = useState<CornerSquareType>('square')
-  const [eyeStyle, setEyeStyle] = useState<CornerDotType>('square')
+  const [cornerStyle, setCornerSquareType] = useState<CornerSquareType>('square')
+  const [eyeStyle, setCornerDotType] = useState<CornerDotType>('square')
   const qrCanvasRef = useRef<HTMLDivElement | null>(null)
   const qrStylingRef = useRef<QRCodeStyling | null>(null)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false)
   const [historyItems, setHistoryItems] = useState<
     { id: string; payload: string; dataUrl: string; createdAt: number }[]
   >([])
@@ -60,6 +61,14 @@ function App() {
     () => (missingRequired.length ? '' : buildPayload(qrTypeId, values)),
     [missingRequired.length, qrTypeId, values]
   )
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!showDownloadMenu) return
+    const close = () => setShowDownloadMenu(false)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [showDownloadMenu])
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem('qrstudio-theme')
@@ -195,13 +204,12 @@ function App() {
         }
         reader.readAsDataURL(blob)
       } catch (error) {
-        // ignore history errors
+        // ignore
       }
     }, 800)
 
     return () => window.clearTimeout(timer)
   }, [payload, moduleStyle, cornerStyle, eyeStyle, darkColor, lightColor])
-
 
   const updateValue = (id: string, value: string) => {
     setValues((prev) => ({
@@ -230,6 +238,18 @@ function App() {
     }
   }
 
+  const handleDownload = (ext: 'png' | 'svg') => {
+    qrStylingRef.current?.download({
+      name: createDownloadName(qrTypeId),
+      extension: ext,
+    })
+  }
+
+  const handleDownloadBundle = () => {
+    handleDownload('png')
+    setTimeout(() => handleDownload('svg'), 150)
+  }
+
   const styleValues: StyleValues = {
     size,
     margin,
@@ -248,8 +268,8 @@ function App() {
     if (next.darkColor !== undefined) setDarkColor(next.darkColor)
     if (next.lightColor !== undefined) setLightColor(next.lightColor)
     if (next.moduleStyle !== undefined) setModuleStyle(next.moduleStyle)
-    if (next.cornerStyle !== undefined) setCornerStyle(next.cornerStyle)
-    if (next.eyeStyle !== undefined) setEyeStyle(next.eyeStyle)
+    if (next.cornerStyle !== undefined) setCornerSquareType(next.cornerStyle)
+    if (next.eyeStyle !== undefined) setCornerDotType(next.eyeStyle)
   }
 
   const clearHistory = () => {
@@ -259,6 +279,18 @@ function App() {
 
   return (
     <div className="app">
+      {/* Dynamic Style injection for the hover effect and theme-awareness */}
+      <style>{`
+        .menu-item:hover {
+          background: rgba(120, 120, 120, 0.1) !important;
+        }
+        .download-menu {
+          background: var(--card-bg, #ffffff) !important;
+          color: var(--text-main, #0f172a) !important;
+          border: 1px solid var(--border-color, #e2e8f0) !important;
+        }
+      `}</style>
+
       <header className="hero">
         <div className="hero-top">
           <div className="badge">
@@ -268,10 +300,7 @@ function App() {
                 <rect x="10" y="10" width="16" height="16" rx="3" fill="#1d4ed8" />
                 <rect x="38" y="10" width="16" height="16" rx="3" fill="#1d4ed8" />
                 <rect x="10" y="38" width="16" height="16" rx="3" fill="#1d4ed8" />
-                <path
-                  d="M32 24h8v16h-4v6h-4V24zm8 22h6v6h-6v-6z"
-                  fill="#e2e8f0"
-                />
+                <path d="M32 24h8v16h-4v6h-4V24zm8 22h6v6h-6v-6z" fill="#e2e8f0" />
               </svg>
             </span>
             QR Studio
@@ -471,30 +500,67 @@ function App() {
                             >
                               {copyStatus === 'copied' ? 'Copied' : 'Copy'}
                             </button>
-                            <button
-                              className="button primary"
-                              type="button"
-                              disabled={!payload}
-                              onClick={() =>
-                                qrStylingRef.current?.download({
-                                  name: createDownloadName(qrTypeId).replace('.png', ''),
-                                  extension: 'png',
-                                })
-                              }
-                            >
-                              Download
-                            </button>
+                            
+                            <div className="download-dropdown-container" style={{ position: 'relative' }}>
+                              <button
+                                className="button primary"
+                                type="button"
+                                disabled={!payload}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowDownloadMenu(!showDownloadMenu);
+                                }}
+                              >
+                                Download
+                                <span style={{ marginLeft: '8px', opacity: 0.7 }}>{showDownloadMenu ? '▴' : '▾'}</span>
+                              </button>
+                              
+                              {showDownloadMenu && (
+                                <div className="download-menu" style={{
+                                  position: 'absolute',
+                                  bottom: '100%',
+                                  right: 0,
+                                  marginBottom: '8px',
+                                  borderRadius: '8px',
+                                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)',
+                                  zIndex: 100,
+                                  minWidth: '180px',
+                                  overflow: 'hidden'
+                                }}>
+                                  <button 
+                                    className="menu-item" 
+                                    style={menuItemStyle} 
+                                    onClick={() => handleDownload('png')}
+                                  >
+                                    Export PNG
+                                  </button>
+                                  <button 
+                                    className="menu-item" 
+                                    style={menuItemStyle} 
+                                    onClick={() => handleDownload('svg')}
+                                  >
+                                    Export SVG (Vector)
+                                  </button>
+                                  <div style={{ height: '1px', background: 'var(--border-color, #e2e8f0)', opacity: 0.5 }} />
+                                  <button 
+                                    className="menu-item" 
+                                    style={{ ...menuItemStyle, color: '#2563eb', fontWeight: 600 }} 
+                                    onClick={handleDownloadBundle}
+                                  >
+                                    Download Both
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         }
                       >
                         {missingRequired.length > 0 ? (
-                          <div className="notice">
-                            Fill the required fields to generate a QR.
-                          </div>
+                          <div className="notice">Fill required fields to generate QR.</div>
                         ) : payload ? (
                           <div ref={qrCanvasRef} className="qr-canvas" />
                         ) : (
-                          <div className="empty">Fill the form to generate a QR.</div>
+                          <div className="empty">Fill form to generate QR.</div>
                         )}
                       </ActionCard>
                     </div>
@@ -508,11 +574,11 @@ function App() {
                 <div className="panel-head">
                   <div>
                     <h2>Scan QR Codes</h2>
-                    <p>Scanning tools are being polished for the next release.</p>
+                    <p>Scanning tools are coming in the next release.</p>
                   </div>
                 </div>
                 <ActionCard title="Coming Soon" description="Camera tools are on the way.">
-                  <div className="empty">Scanning will land in the next release.</div>
+                  <div className="empty">Scanning will land soon.</div>
                 </ActionCard>
               </section>
             )}
@@ -522,14 +588,10 @@ function App() {
                 <div className="panel-head">
                   <div>
                     <h2>History</h2>
-                    <p>Previously generated QR codes stored on this device.</p>
+                    <p>Recently generated codes on this device.</p>
                   </div>
                   <div className="panel-actions">
-                    <div className="history-meta">
-                      <span className="muted">
-                        {historyItems.length} saved
-                      </span>
-                    </div>
+                    <span className="muted">{historyItems.length} saved</span>
                     <button
                       type="button"
                       className="button secondary"
@@ -542,37 +604,21 @@ function App() {
                 </div>
                 {historyItems.length === 0 ? (
                   <div className="empty-card">
-                    <strong>No saved QR codes yet.</strong>
-                    <span className="muted">
-                      Create a QR on the Generate tab and we will keep the most recent
-                      ones here automatically.
-                    </span>
+                    <strong>No saved codes yet.</strong>
                   </div>
                 ) : (
-                  <>
-                    <div className="history-toolbar">
-                      <span className="muted">
-                        Showing the latest {Math.min(12, historyItems.length)} QR codes.
-                      </span>
-                    </div>
-                    <div className="history-grid">
-                      {historyItems.map((item) => (
-                        <div key={item.id} className="history-card">
-                          <div className="history-preview">
-                            <img src={item.dataUrl} alt="QR code" />
-                          </div>
-                          <div className="history-content">
-                            <p className="history-title">
-                              {item.payload.slice(0, 56)}
-                            </p>
-                            <span className="muted small">
-                              {new Date(item.createdAt).toLocaleString()}
-                            </span>
-                          </div>
+                  <div className="history-grid">
+                    {historyItems.map((item) => (
+                      <div key={item.id} className="history-card">
+                        <div className="history-preview">
+                          <img src={item.dataUrl} alt="QR" />
                         </div>
-                      ))}
-                    </div>
-                  </>
+                        <div className="history-content">
+                          <p className="history-title">{item.payload.slice(0, 40)}...</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </section>
             )}
@@ -583,17 +629,24 @@ function App() {
       <footer className="footer">
         <div className="footer-brand">
           <strong>QR Studio</strong>
-          <span className="muted">Professional QR tooling for modern teams.</span>
-        </div>
-        <div className="footer-links">
-          <span>Docs</span>
-          <span>Roadmap</span>
-          <span>Support</span>
         </div>
       </footer>
       <Analytics />
     </div>
   )
+}
+
+const menuItemStyle: React.CSSProperties = {
+  display: 'block',
+  width: '100%',
+  padding: '12px 16px',
+  textAlign: 'left',
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  fontSize: '13px',
+  color: 'inherit',
+  transition: 'background 0.2s',
 }
 
 export default App
