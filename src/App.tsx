@@ -13,7 +13,6 @@ import { Analytics } from '@vercel/analytics/react'
 
 const errorLevels = ['L', 'M', 'Q', 'H'] as const
 
-// Updated to remove hardcoded .png extension
 const createDownloadName = (typeId: string) =>
   `everything-qr-${typeId}-${new Date().toISOString().slice(0, 10)}`
 
@@ -35,11 +34,12 @@ function App() {
   const [darkColor, setDarkColor] = useState('#0f172a')
   const [lightColor, setLightColor] = useState('#ffffff')
   const [moduleStyle, setModuleStyle] = useState<DotType>('square')
-  const [cornerStyle, setCornerStyle] = useState<CornerSquareType>('square')
-  const [eyeStyle, setEyeStyle] = useState<CornerDotType>('square')
+  const [cornerStyle, setCornerSquareType] = useState<CornerSquareType>('square')
+  const [eyeStyle, setCornerDotType] = useState<CornerDotType>('square')
   const qrCanvasRef = useRef<HTMLDivElement | null>(null)
   const qrStylingRef = useRef<QRCodeStyling | null>(null)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false)
   const [historyItems, setHistoryItems] = useState<
     { id: string; payload: string; dataUrl: string; createdAt: number }[]
   >([])
@@ -61,6 +61,14 @@ function App() {
     () => (missingRequired.length ? '' : buildPayload(qrTypeId, values)),
     [missingRequired.length, qrTypeId, values]
   )
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!showDownloadMenu) return
+    const close = () => setShowDownloadMenu(false)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [showDownloadMenu])
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem('qrstudio-theme')
@@ -196,13 +204,12 @@ function App() {
         }
         reader.readAsDataURL(blob)
       } catch (error) {
-        // ignore history errors
+        // ignore
       }
     }, 800)
 
     return () => window.clearTimeout(timer)
   }, [payload, moduleStyle, cornerStyle, eyeStyle, darkColor, lightColor])
-
 
   const updateValue = (id: string, value: string) => {
     setValues((prev) => ({
@@ -231,6 +238,20 @@ function App() {
     }
   }
 
+  // Feature: Single format download
+  const handleDownload = (ext: 'png' | 'svg') => {
+    qrStylingRef.current?.download({
+      name: createDownloadName(qrTypeId),
+      extension: ext,
+    })
+  }
+
+  // Feature: Download multiple formats in one go
+  const handleDownloadBundle = () => {
+    handleDownload('png')
+    setTimeout(() => handleDownload('svg'), 100) // Small delay prevents browser block
+  }
+
   const styleValues: StyleValues = {
     size,
     margin,
@@ -249,8 +270,8 @@ function App() {
     if (next.darkColor !== undefined) setDarkColor(next.darkColor)
     if (next.lightColor !== undefined) setLightColor(next.lightColor)
     if (next.moduleStyle !== undefined) setModuleStyle(next.moduleStyle)
-    if (next.cornerStyle !== undefined) setCornerStyle(next.cornerStyle)
-    if (next.eyeStyle !== undefined) setEyeStyle(next.eyeStyle)
+    if (next.cornerStyle !== undefined) setCornerSquareType(next.cornerStyle)
+    if (next.eyeStyle !== undefined) setCornerDotType(next.eyeStyle)
   }
 
   const clearHistory = () => {
@@ -472,34 +493,60 @@ function App() {
                             >
                               {copyStatus === 'copied' ? 'Copied' : 'Copy'}
                             </button>
-                            {/* Updated Download Actions */}
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            
+                            {/* New Multi-Option Download Dropdown */}
+                            <div className="download-dropdown-container" style={{ position: 'relative' }}>
                               <button
                                 className="button primary"
                                 type="button"
                                 disabled={!payload}
-                                onClick={() =>
-                                  qrStylingRef.current?.download({
-                                    name: createDownloadName(qrTypeId),
-                                    extension: 'png',
-                                  })
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowDownloadMenu(!showDownloadMenu);
+                                }}
                               >
-                                PNG
+                                Download
+                                <span style={{ marginLeft: '8px', fontSize: '0.8em' }}>{showDownloadMenu ? '▲' : '▼'}</span>
                               </button>
-                              <button
-                                className="button secondary"
-                                type="button"
-                                disabled={!payload}
-                                onClick={() =>
-                                  qrStylingRef.current?.download({
-                                    name: createDownloadName(qrTypeId),
-                                    extension: 'svg',
-                                  })
-                                }
-                              >
-                                SVG
-                              </button>
+                              
+                              {showDownloadMenu && (
+                                <div className="download-menu" style={{
+                                  position: 'absolute',
+                                  bottom: '100%',
+                                  right: 0,
+                                  marginBottom: '8px',
+                                  background: 'var(--card-bg, white)',
+                                  border: '1px solid var(--border-color, #e2e8f0)',
+                                  borderRadius: '8px',
+                                  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                                  zIndex: 100,
+                                  minWidth: '160px',
+                                  overflow: 'hidden'
+                                }}>
+                                  <button 
+                                    className="menu-item" 
+                                    style={menuItemStyle} 
+                                    onClick={() => handleDownload('png')}
+                                  >
+                                    Export as PNG
+                                  </button>
+                                  <button 
+                                    className="menu-item" 
+                                    style={menuItemStyle} 
+                                    onClick={() => handleDownload('svg')}
+                                  >
+                                    Export as SVG (Crisp)
+                                  </button>
+                                  <div style={{ height: '1px', background: '#e2e8f0' }} />
+                                  <button 
+                                    className="menu-item" 
+                                    style={{ ...menuItemStyle, color: '#1d4ed8', fontWeight: 'bold' }} 
+                                    onClick={handleDownloadBundle}
+                                  >
+                                    Download Both (.png + .svg)
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         }
@@ -611,6 +658,20 @@ function App() {
       <Analytics />
     </div>
   )
+}
+
+// Inline styles for the menu items for quick implementation
+const menuItemStyle: React.CSSProperties = {
+  display: 'block',
+  width: '100%',
+  padding: '12px 16px',
+  textAlign: 'left',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  fontSize: '14px',
+  color: 'inherit',
+  transition: 'background 0.2s',
 }
 
 export default App
