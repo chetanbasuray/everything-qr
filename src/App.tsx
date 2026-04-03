@@ -13,8 +13,9 @@ import { Analytics } from '@vercel/analytics/react'
 
 const errorLevels = ['L', 'M', 'Q', 'H'] as const
 
+// Updated to remove hardcoded .png extension
 const createDownloadName = (typeId: string) =>
-  `everything-qr-${typeId}-${new Date().toISOString().slice(0, 10)}.png`
+  `everything-qr-${typeId}-${new Date().toISOString().slice(0, 10)}`
 
 function App() {
   const [activeTab, setActiveTab] = useState<'generate' | 'scan' | 'history'>(
@@ -471,19 +472,35 @@ function App() {
                             >
                               {copyStatus === 'copied' ? 'Copied' : 'Copy'}
                             </button>
-                            <button
-                              className="button primary"
-                              type="button"
-                              disabled={!payload}
-                              onClick={() =>
-                                qrStylingRef.current?.download({
-                                  name: createDownloadName(qrTypeId).replace('.png', ''),
-                                  extension: 'png',
-                                })
-                              }
-                            >
-                              Download
-                            </button>
+                            {/* Updated Download Actions */}
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                className="button primary"
+                                type="button"
+                                disabled={!payload}
+                                onClick={() =>
+                                  qrStylingRef.current?.download({
+                                    name: createDownloadName(qrTypeId),
+                                    extension: 'png',
+                                  })
+                                }
+                              >
+                                PNG
+                              </button>
+                              <button
+                                className="button secondary"
+                                type="button"
+                                disabled={!payload}
+                                onClick={() =>
+                                  qrStylingRef.current?.download({
+                                    name: createDownloadName(qrTypeId),
+                                    extension: 'svg',
+                                  })
+                                }
+                              >
+                                SVG
+                              </button>
+                            </div>
                           </div>
                         }
                       >
