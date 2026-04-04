@@ -4,7 +4,7 @@ import {
   Typography, Container, Paper, Button, IconButton, 
   Stack, TextField, MenuItem, FormControlLabel, 
   Checkbox, Fade, Snackbar, Alert, Toolbar, AppBar,
-  ToggleButton, ToggleButtonGroup, useMediaQuery
+  ToggleButton, ToggleButtonGroup, useMediaQuery, Slider
 } from '@mui/material';
 import { 
   DarkMode, LightMode, QrCode2, Palette, 
@@ -30,10 +30,14 @@ function App() {
   
   const [dotsType, setDotsType] = useState<DotType>('rounded');
   const [dotsColor, setDotsColor] = useState('#10b981'); 
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [logoSize, setLogoSize] = useState(0.25);
+  const [logoMargin, setLogoMargin] = useState(6);
   const [copySnack, setCopySnack] = useState(false);
 
   const qrCanvasRef = useRef<HTMLDivElement>(null);
   const qrStylingRef = useRef<QRCodeStyling | null>(null);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
   const isDesktop = useMediaQuery('(min-width:900px)');
 
   // Sync theme with localStorage and document attribute
@@ -114,6 +118,15 @@ function App() {
       dotsOptions: { color: dotsColor, type: dotsType },
       backgroundOptions: { color: 'transparent' },
     };
+    if (logoDataUrl) {
+      options.image = logoDataUrl;
+      options.imageOptions = {
+        crossOrigin: 'anonymous',
+        margin: logoMargin,
+        imageSize: logoSize,
+        hideBackgroundDots: true,
+      };
+    }
     if (!qrStylingRef.current) {
       qrStylingRef.current = new QRCodeStyling(options);
       if (qrCanvasRef.current) {
@@ -123,7 +136,7 @@ function App() {
     } else {
       qrStylingRef.current.update(options);
     }
-  }, [payload, dotsColor, dotsType]);
+  }, [payload, dotsColor, dotsType, logoDataUrl, logoSize, logoMargin]);
 
   const handleCopy = async () => {
     if (!qrStylingRef.current || !payload) return;
@@ -134,6 +147,19 @@ function App() {
         setCopySnack(true);
       }
     } catch (err) { console.error(err); }
+  };
+
+  const handleLogoUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : null;
+      setLogoDataUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleLogoRemove = () => {
+    setLogoDataUrl(null);
   };
 
   return (
@@ -231,6 +257,67 @@ function App() {
                         <input type="color" value={dotsColor} onChange={(e) => setDotsColor(e.target.value)} style={{ width: 50, height: 32, border: 'none', borderRadius: 6, cursor: 'pointer', background: 'none' }} />
                         <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>{dotsColor.toUpperCase()}</Typography>
                       </Stack>
+                      <Box>
+                        <Typography variant="overline" color="text.secondary" fontWeight={700}>Logo</Typography>
+                        <Stack spacing={1} mt={1}>
+                          <input
+                            ref={logoInputRef}
+                            type="file"
+                            accept="image/png,image/svg+xml,image/webp"
+                            hidden
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleLogoUpload(file);
+                            }}
+                          />
+                          <Stack direction="row" spacing={1}>
+                            <Button variant="outlined" fullWidth onClick={() => logoInputRef.current?.click()}>
+                              Upload Logo
+                            </Button>
+                            {logoDataUrl ? (
+                              <Button variant="text" color="error" onClick={handleLogoRemove}>
+                                Remove
+                              </Button>
+                            ) : null}
+                          </Stack>
+                          {logoDataUrl ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <Box sx={{ width: 54, height: 54, borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'grid', placeItems: 'center', bgcolor: 'background.default' }}>
+                                <img src={logoDataUrl} alt="Logo preview" style={{ maxWidth: 40, maxHeight: 40 }} />
+                              </Box>
+                              <Typography variant="caption" color="text.secondary">
+                                PNG / SVG / WEBP supported
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              PNG / SVG / WEBP supported
+                            </Typography>
+                          )}
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Logo size</Typography>
+                            <Slider
+                              size="small"
+                              value={logoSize}
+                              min={0.15}
+                              max={0.4}
+                              step={0.01}
+                              onChange={(_, v) => setLogoSize(v as number)}
+                            />
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Safe-zone margin</Typography>
+                            <Slider
+                              size="small"
+                              value={logoMargin}
+                              min={0}
+                              max={16}
+                              step={1}
+                              onChange={(_, v) => setLogoMargin(v as number)}
+                            />
+                          </Box>
+                        </Stack>
+                      </Box>
                     </Stack>
                   </Paper>
                 </Box>
