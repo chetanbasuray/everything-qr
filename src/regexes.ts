@@ -1,6 +1,7 @@
-import { regex } from 'shorol'
+import { regex } from 'shorol';
 
-const urlLikeRegex = regex()
+// Your existing URL regex
+export const urlLikeRegex = regex()
   .start()
   .group((builder) =>
     builder
@@ -17,6 +18,28 @@ const urlLikeRegex = regex()
   .any()
   .zeroOrMore()
   .end()
-  .toRegExp('i')
+  .toRegExp('i');
 
-export { urlLikeRegex }
+// New Email Regex using Shorol
+export const emailRegex = regex()
+  .start()
+  .noneOf(' @')
+  .oneOrMore()
+  .literal('@')
+  .noneOf(' @')
+  .oneOrMore()
+  .literal('.')
+  .noneOf(' @')
+  .repeat(2)
+  .end()
+  .toRegExp('i');
+
+// New Phone Regex using Shorol
+export const phoneRegex = regex()
+  .start()
+  .literal('+')
+  .optional()
+  .digit()
+  .repeat(7, 15)
+  .end()
+  .toRegExp();
