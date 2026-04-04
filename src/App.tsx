@@ -1,652 +1,251 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import QRCodeStyling from 'qr-code-styling'
-import type {
-  CornerDotType,
-  CornerSquareType,
-  DotType,
-  Options,
-} from 'qr-code-styling'
-import { buildPayload, getDefaultValues, qrTypes } from './lib/qrTypes'
-import StyleController, { type StyleValues } from './components/StyleController'
-import ActionCard from './components/ActionCard'
-import { Analytics } from '@vercel/analytics/react'
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { 
+  Box, CssBaseline, ThemeProvider, createTheme, 
+  Typography, Container, Paper, Button, IconButton, 
+  Stack, TextField, MenuItem, FormControlLabel, 
+  Checkbox, Fade, Snackbar, Alert, Toolbar, AppBar,
+  ToggleButton, ToggleButtonGroup, useMediaQuery
+} from '@mui/material';
+import { 
+  DarkMode, LightMode, QrCode2, Palette, 
+  ContentCopy, Download 
+} from '@mui/icons-material';
+import QRCodeStyling, { type Options, type DotType } from 'qr-code-styling';
+import { Analytics } from '@vercel/analytics/react';
 
-const errorLevels = ['L', 'M', 'Q', 'H'] as const
-
-const createDownloadName = (typeId: string) =>
-  `everything-qr-${typeId}-${new Date().toISOString().slice(0, 10)}`
+// Using your custom logic and the Shorol-powered regexes
+import { qrTypes, getDefaultValues, buildPayload } from './lib/qrTypes';
+import { urlLikeRegex, emailRegex, phoneRegex } from './regexes';
+import './styles.css';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'generate' | 'scan' | 'history'>(
-    'generate'
-  )
-  const [navCollapsed, setNavCollapsed] = useState(false)
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
-  const [qrTypeId, setQrTypeId] = useState(qrTypes[0].id)
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    getDefaultValues(qrTypes[0].id)
-  )
-  const [size, setSize] = useState(320)
-  const [margin, setMargin] = useState(2)
-  const [errorLevel, setErrorLevel] = useState<(typeof errorLevels)[number]>(
-    'M'
-  )
-  const [darkColor, setDarkColor] = useState('#0f172a')
-  const [lightColor, setLightColor] = useState('#ffffff')
-  const [moduleStyle, setModuleStyle] = useState<DotType>('square')
-  const [cornerStyle, setCornerSquareType] = useState<CornerSquareType>('square')
-  const [eyeStyle, setCornerDotType] = useState<CornerDotType>('square')
-  const qrCanvasRef = useRef<HTMLDivElement | null>(null)
-  const qrStylingRef = useRef<QRCodeStyling | null>(null)
-  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
-  const [showDownloadMenu, setShowDownloadMenu] = useState(false)
-  const [historyItems, setHistoryItems] = useState<
-    { id: string; payload: string; dataUrl: string; createdAt: number }[]
-  >([])
+  // Initialize mode from localStorage, falling back to 'light'
+  const [mode, setMode] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('qr-studio-theme');
+    return (saved === 'light' || saved === 'dark') ? saved : 'light';
+  });
 
-  const selectedType = useMemo(
-    () => qrTypes.find((type) => type.id === qrTypeId) ?? qrTypes[0],
-    [qrTypeId]
-  )
+  const [qrTypeId, setQrTypeId] = useState(qrTypes[0].id);
+  const [values, setValues] = useState(() => getDefaultValues(qrTypes[0].id));
+  
+  const [dotsType, setDotsType] = useState<DotType>('rounded');
+  const [dotsColor, setDotsColor] = useState('#10b981'); 
+  const [copySnack, setCopySnack] = useState(false);
 
-  const missingRequired = useMemo(
-    () =>
-      selectedType.fields.filter(
-        (field) => field.required && !String(values[field.id] || '').trim()
-      ),
-    [selectedType.fields, values]
-  )
+  const qrCanvasRef = useRef<HTMLDivElement>(null);
+  const qrStylingRef = useRef<QRCodeStyling | null>(null);
+  const isDesktop = useMediaQuery('(min-width:900px)');
 
-  const payload = useMemo(
-    () => (missingRequired.length ? '' : buildPayload(qrTypeId, values)),
-    [missingRequired.length, qrTypeId, values]
-  )
-
-  // Close dropdown when clicking outside
+  // Sync theme with localStorage and document attribute
   useEffect(() => {
-    if (!showDownloadMenu) return
-    const close = () => setShowDownloadMenu(false)
-    window.addEventListener('click', close)
-    return () => window.removeEventListener('click', close)
-  }, [showDownloadMenu])
+    localStorage.setItem('qr-studio-theme', mode);
+    document.documentElement.setAttribute('data-theme', mode);
+  }, [mode]);
 
   useEffect(() => {
-    const storedTheme = window.localStorage.getItem('qrstudio-theme')
-    if (storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'system') {
-      setTheme(storedTheme)
+    if (qrCanvasRef.current) {
+      qrCanvasRef.current.innerHTML = '';
+      qrStylingRef.current = null;
     }
-  }, [])
+  }, [qrTypeId]);
 
-  useEffect(() => {
-    const root = document.documentElement
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)')
-    const applyTheme = (next: 'light' | 'dark' | 'system') => {
-      if (next === 'system') {
-        root.dataset.theme = prefersDark.matches ? 'dark' : 'light'
-      } else {
-        root.dataset.theme = next
+  const theme = useMemo(() => createTheme({
+    palette: {
+      mode,
+      primary: { main: mode === 'light' ? '#10b981' : '#34d399' },
+      background: { 
+        default: mode === 'light' ? '#f8fafc' : '#020617',
+        paper: mode === 'light' ? '#ffffff' : '#0f172a' 
+      },
+      text: {
+        primary: mode === 'light' ? '#0f172a' : '#f1f5f9'
       }
-    }
-
-    applyTheme(theme)
-    window.localStorage.setItem('qrstudio-theme', theme)
-
-    const listener = (event: MediaQueryListEvent) => {
-      if (theme === 'system') {
-        root.dataset.theme = event.matches ? 'dark' : 'light'
-      }
-    }
-
-    prefersDark.addEventListener('change', listener)
-    return () => prefersDark.removeEventListener('change', listener)
-  }, [theme])
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem('qrstudio-history')
-    if (!stored) return
-    try {
-      const parsed = JSON.parse(stored) as {
-        id: string
-        payload: string
-        dataUrl: string
-        createdAt: number
-      }[]
-      setHistoryItems(parsed)
-    } catch (error) {
-      setHistoryItems([])
-    }
-  }, [])
-
-  useEffect(() => {
-    setValues(getDefaultValues(qrTypeId))
-  }, [qrTypeId])
-
-  useEffect(() => {
-    if (!qrCanvasRef.current) return
-
-    if (!payload) {
-      qrCanvasRef.current.innerHTML = ''
-      return
-    }
-
-    const options: Partial<Options> = {
-      width: size,
-      height: size,
-      type: 'svg' as const,
-      data: payload,
-      margin,
-      qrOptions: {
-        errorCorrectionLevel: errorLevel,
-      },
-      dotsOptions: {
-        color: darkColor,
-        type: moduleStyle,
-      },
-      cornersSquareOptions: {
-        color: darkColor,
-        type: cornerStyle,
-      },
-      cornersDotOptions: {
-        color: darkColor,
-        type: eyeStyle,
-      },
-      backgroundOptions: {
-        color: lightColor,
-      },
-    }
-
-    if (!qrStylingRef.current) {
-      qrStylingRef.current = new QRCodeStyling(options)
-    } else {
-      qrStylingRef.current.update(options)
-    }
-
-    qrCanvasRef.current.innerHTML = ''
-    qrStylingRef.current.append(qrCanvasRef.current)
-  }, [
-    payload,
-    size,
-    margin,
-    errorLevel,
-    darkColor,
-    lightColor,
-    moduleStyle,
-    cornerStyle,
-    eyeStyle,
-  ])
-
-  useEffect(() => {
-    if (!payload || !qrStylingRef.current) return
-    const timer = window.setTimeout(async () => {
-      try {
-        const raw = await qrStylingRef.current?.getRawData('png')
-        if (!raw) return
-        const blob =
-          raw instanceof Blob
-            ? raw
-            : new Blob([raw as unknown as ArrayBuffer], { type: 'image/png' })
-        const reader = new FileReader()
-        reader.onload = () => {
-          const dataUrl = String(reader.result || '')
-          setHistoryItems((prev) => {
-            if (!dataUrl) return prev
-            const nextItem = {
-              id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              payload,
-              dataUrl,
-              createdAt: Date.now(),
-            }
-            const merged = [nextItem, ...prev.filter((item) => item.payload !== payload)]
-            const trimmed = merged.slice(0, 12)
-            window.localStorage.setItem('qrstudio-history', JSON.stringify(trimmed))
-            return trimmed
-          })
+    },
+    shape: { borderRadius: 12 },
+    typography: { fontFamily: "'Inter', sans-serif" },
+    components: {
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundImage: 'none',
+            border: `1px solid ${mode === 'light' ? 'rgba(15, 23, 42, 0.08)' : '#1e293b'}`,
+          }
         }
-        reader.readAsDataURL(blob)
-      } catch (error) {
-        // ignore
+      },
+      MuiButton: {
+        defaultProps: { disableElevation: true },
+        styleOverrides: {
+          root: { textTransform: 'none', fontWeight: 600, borderRadius: '12px' }
+        }
       }
-    }, 800)
+    }
+  }), [mode]);
 
-    return () => window.clearTimeout(timer)
-  }, [payload, moduleStyle, cornerStyle, eyeStyle, darkColor, lightColor])
+  const selectedType = useMemo(() => qrTypes.find(t => t.id === qrTypeId)!, [qrTypeId]);
 
-  const updateValue = (id: string, value: string) => {
-    setValues((prev) => ({
-      ...prev,
-      [id]: value,
-    }))
-  }
+  const getFieldError = (fieldId: string, type: string, value: string) => {
+    if (!value) return '';
+    const trimmed = value.trim();
+    if (type === 'url' && !urlLikeRegex.test(trimmed)) return 'Invalid URL';
+    if (type === 'email' && !emailRegex.test(trimmed)) return 'Invalid Email';
+    if (type === 'tel' && !phoneRegex.test(trimmed)) return 'Invalid Phone';
+    return '';
+  };
+
+  const payload = useMemo(() => {
+    const missingReq = selectedType.fields.some(f => f.required && !String(values[f.id] || '').trim());
+    const hasInvalid = selectedType.fields.some(f => 
+      getFieldError(f.id, f.type, values[f.id] || '') !== ''
+    );
+    if (missingReq || hasInvalid) return '';
+    return buildPayload(qrTypeId, values);
+  }, [qrTypeId, values, selectedType]);
+
+  useEffect(() => {
+    if (!payload) {
+      if (qrCanvasRef.current) qrCanvasRef.current.innerHTML = '';
+      qrStylingRef.current = null;
+      return;
+    }
+    const options: Partial<Options> = {
+      width: 260,
+      height: 260,
+      data: payload,
+      dotsOptions: { color: dotsColor, type: dotsType },
+      backgroundOptions: { color: 'transparent' },
+    };
+    if (!qrStylingRef.current) {
+      qrStylingRef.current = new QRCodeStyling(options);
+      if (qrCanvasRef.current) {
+        qrCanvasRef.current.innerHTML = '';
+        qrStylingRef.current.append(qrCanvasRef.current);
+      }
+    } else {
+      qrStylingRef.current.update(options);
+    }
+  }, [payload, dotsColor, dotsType]);
 
   const handleCopy = async () => {
-    if (!qrStylingRef.current || !payload) return
+    if (!qrStylingRef.current || !payload) return;
     try {
-      const raw = await qrStylingRef.current.getRawData('png')
-      if (!raw) return
-      const blob =
-        raw instanceof Blob
-          ? raw
-          : new Blob([raw as unknown as ArrayBuffer], { type: 'image/png' })
-      if (navigator.clipboard && 'write' in navigator.clipboard) {
-        const item = new ClipboardItem({ 'image/png': blob })
-        await navigator.clipboard.write([item])
-        setCopyStatus('copied')
-        window.setTimeout(() => setCopyStatus('idle'), 1500)
+      const blob = await qrStylingRef.current.getRawData('png');
+      if (blob instanceof Blob) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        setCopySnack(true);
       }
-    } catch (error) {
-      setCopyStatus('idle')
-    }
-  }
-
-  const handleDownload = (ext: 'png' | 'svg') => {
-    qrStylingRef.current?.download({
-      name: createDownloadName(qrTypeId),
-      extension: ext,
-    })
-  }
-
-  const handleDownloadBundle = () => {
-    handleDownload('png')
-    setTimeout(() => handleDownload('svg'), 150)
-  }
-
-  const styleValues: StyleValues = {
-    size,
-    margin,
-    errorLevel,
-    darkColor,
-    lightColor,
-    moduleStyle,
-    cornerStyle,
-    eyeStyle,
-  }
-
-  const handleStyleChange = (next: Partial<StyleValues>) => {
-    if (next.size !== undefined) setSize(next.size)
-    if (next.margin !== undefined) setMargin(next.margin)
-    if (next.errorLevel !== undefined) setErrorLevel(next.errorLevel)
-    if (next.darkColor !== undefined) setDarkColor(next.darkColor)
-    if (next.lightColor !== undefined) setLightColor(next.lightColor)
-    if (next.moduleStyle !== undefined) setModuleStyle(next.moduleStyle)
-    if (next.cornerStyle !== undefined) setCornerSquareType(next.cornerStyle)
-    if (next.eyeStyle !== undefined) setCornerDotType(next.eyeStyle)
-  }
-
-  const clearHistory = () => {
-    setHistoryItems([])
-    window.localStorage.removeItem('qrstudio-history')
-  }
+    } catch (err) { console.error(err); }
+  };
 
   return (
-    <div className="app">
-      {/* Dynamic Style injection for the hover effect and theme-awareness */}
-      <style>{`
-        .menu-item:hover {
-          background: rgba(120, 120, 120, 0.1) !important;
-        }
-        .download-menu {
-          background: var(--card-bg, #ffffff) !important;
-          color: var(--text-main, #0f172a) !important;
-          border: 1px solid var(--border-color, #e2e8f0) !important;
-        }
-      `}</style>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Toolbar>
+            <QrCode2 sx={{ mr: 2, color: 'primary.main', fontSize: 32 }} />
+            <Typography variant="h6" color="text.primary" fontWeight={900}>QR STUDIO</Typography>
+            <Box sx={{ flexGrow: 1 }} />
+            <IconButton onClick={() => setMode(m => m === 'light' ? 'dark' : 'light')}>
+              {mode === 'light' ? <DarkMode /> : <LightMode sx={{ color: '#facc15' }} />}
+            </IconButton>
+          </Toolbar>
+        </AppBar>
 
-      <header className="hero">
-        <div className="hero-top">
-          <div className="badge">
-            <span className="mark" aria-hidden="true">
-              <svg viewBox="0 0 64 64" role="img" aria-label="QR Studio icon">
-                <rect width="64" height="64" rx="14" fill="#0f172a" />
-                <rect x="10" y="10" width="16" height="16" rx="3" fill="#1d4ed8" />
-                <rect x="38" y="10" width="16" height="16" rx="3" fill="#1d4ed8" />
-                <rect x="10" y="38" width="16" height="16" rx="3" fill="#1d4ed8" />
-                <path d="M32 24h8v16h-4v6h-4V24zm8 22h6v6h-6v-6z" fill="#e2e8f0" />
-              </svg>
-            </span>
-            QR Studio
-          </div>
-        </div>
-      </header>
-
-      <main className="main">
-        <div className="layout">
-          <aside className={navCollapsed ? 'nav-rail collapsed' : 'nav-rail'}>
-            <button
-              type="button"
-              className="rail-toggle"
-              onClick={() => setNavCollapsed((prev) => !prev)}
-              aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
-            >
-              <span />
-            </button>
-            <button
-              type="button"
-              className={activeTab === 'generate' ? 'rail-item active' : 'rail-item'}
-              onClick={() => setActiveTab('generate')}
-              aria-label="Generate"
-            >
-              <span className="rail-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <rect x="3" y="3" width="7" height="7" rx="2" />
-                  <rect x="14" y="3" width="7" height="7" rx="2" />
-                  <rect x="3" y="14" width="7" height="7" rx="2" />
-                  <path d="M14 14h7v7h-7z" />
-                </svg>
-              </span>
-              <span className="rail-label">Generate</span>
-            </button>
-            <button
-              type="button"
-              className={activeTab === 'scan' ? 'rail-item active' : 'rail-item'}
-              onClick={() => setActiveTab('scan')}
-              aria-label="Scan"
-            >
-              <span className="rail-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M4 8V5h3M20 8V5h-3M4 16v3h3M20 16v3h-3" />
-                  <rect x="7" y="9" width="10" height="6" rx="2" />
-                </svg>
-              </span>
-              <span className="rail-label">Scan</span>
-            </button>
-            <button
-              type="button"
-              className={activeTab === 'history' ? 'rail-item active' : 'rail-item'}
-              onClick={() => setActiveTab('history')}
-              aria-label="History"
-            >
-              <span className="rail-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M12 6v6l4 2" />
-                  <path d="M3 12a9 9 0 1 0 3-6" />
-                </svg>
-              </span>
-              <span className="rail-label">History</span>
-            </button>
-            <button
-              type="button"
-              className="rail-item rail-theme"
-              onClick={() =>
-                setTheme((prev) =>
-                  prev === 'light' ? 'dark' : prev === 'dark' ? 'system' : 'light'
-                )
-              }
-              aria-label="Toggle theme"
-            >
-              <span className="rail-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  {theme === 'dark' ? (
-                    <path d="M21 14.5A9 9 0 1 1 9.5 3 7 7 0 0 0 21 14.5z" />
-                  ) : (
-                    <circle cx="12" cy="12" r="5" />
-                  )}
-                </svg>
-              </span>
-              <span className="rail-label">
-                {theme === 'system' ? 'System' : theme === 'dark' ? 'Dark' : 'Light'}
-              </span>
-            </button>
-          </aside>
-
-          <section className="workspace">
-            {activeTab === 'generate' && (
-              <section className="panel config-panel">
-                <div className="panel-head">
-                  <div>
-                    <h2>Configuration</h2>
-                    <p>Pick a QR type, complete details, then style the output.</p>
-                  </div>
-                </div>
-                <div className="generator-layout">
-                  <div className="generate-split">
-                    <div className="config-column">
-                      <div className="type-row">
-                        <div className="type-row-scroll">
-                          {qrTypes.map((type) => (
-                            <button
-                              key={type.id}
-                              type="button"
-                              className={
-                                qrTypeId === type.id ? 'type-pill active' : 'type-pill'
-                              }
-                              onClick={() => setQrTypeId(type.id)}
-                            >
-                              {type.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="section">
-                        <h4>Details</h4>
-                        <div className="form">
-                          {selectedType.fields.map((field) => (
-                            <label key={field.id} className="field">
-                              <span>
-                                {field.label}
-                                {field.required ? <em>Required</em> : null}
-                              </span>
-                              {field.type === 'textarea' ? (
-                                <textarea
-                                  value={values[field.id] || ''}
-                                  placeholder={field.placeholder}
-                                  onChange={(event) =>
-                                    updateValue(field.id, event.target.value)
-                                  }
-                                />
-                              ) : field.type === 'select' ? (
-                                <select
-                                  value={values[field.id] || ''}
-                                  onChange={(event) =>
-                                    updateValue(field.id, event.target.value)
-                                  }
-                                >
-                                  {field.options?.map((option) => (
-                                    <option key={option} value={option}>
-                                      {option}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : field.type === 'checkbox' ? (
-                                <button
-                                  type="button"
-                                  className={
-                                    values[field.id] === 'true'
-                                      ? 'toggle active'
-                                      : 'toggle'
-                                  }
-                                  onClick={() =>
-                                    updateValue(
-                                      field.id,
-                                      values[field.id] === 'true' ? 'false' : 'true'
-                                    )
-                                  }
-                                >
-                                  {values[field.id] === 'true' ? 'Yes' : 'No'}
-                                </button>
-                              ) : (
-                                <input
-                                  type={field.type}
-                                  value={values[field.id] || ''}
-                                  placeholder={field.placeholder}
-                                  onChange={(event) =>
-                                    updateValue(field.id, event.target.value)
-                                  }
-                                />
-                              )}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="section">
-                        <h4>Style</h4>
-                        <StyleController values={styleValues} onChange={handleStyleChange} />
-                      </div>
-                    </div>
-
-                    <div className="preview-column">
-                      <ActionCard
-                        title="Live Preview"
-                        description={payload ? payload.slice(0, 64) : 'Waiting for data'}
-                        className="sticky-preview"
-                        actions={
-                          <div className="preview-actions">
-                            <button
-                              className="button secondary"
-                              type="button"
-                              disabled={!payload}
-                              onClick={handleCopy}
-                            >
-                              {copyStatus === 'copied' ? 'Copied' : 'Copy'}
-                            </button>
-                            
-                            <div className="download-dropdown-container" style={{ position: 'relative' }}>
-                              <button
-                                className="button primary"
-                                type="button"
-                                disabled={!payload}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowDownloadMenu(!showDownloadMenu);
-                                }}
-                              >
-                                Download
-                                <span style={{ marginLeft: '8px', opacity: 0.7 }}>{showDownloadMenu ? '▴' : '▾'}</span>
-                              </button>
-                              
-                              {showDownloadMenu && (
-                                <div className="download-menu" style={{
-                                  position: 'absolute',
-                                  bottom: '100%',
-                                  right: 0,
-                                  marginBottom: '8px',
-                                  borderRadius: '8px',
-                                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)',
-                                  zIndex: 100,
-                                  minWidth: '180px',
-                                  overflow: 'hidden'
-                                }}>
-                                  <button 
-                                    className="menu-item" 
-                                    style={menuItemStyle} 
-                                    onClick={() => handleDownload('png')}
-                                  >
-                                    Export PNG
-                                  </button>
-                                  <button 
-                                    className="menu-item" 
-                                    style={menuItemStyle} 
-                                    onClick={() => handleDownload('svg')}
-                                  >
-                                    Export SVG (Vector)
-                                  </button>
-                                  <div style={{ height: '1px', background: 'var(--border-color, #e2e8f0)', opacity: 0.5 }} />
-                                  <button 
-                                    className="menu-item" 
-                                    style={{ ...menuItemStyle, color: '#2563eb', fontWeight: 600 }} 
-                                    onClick={handleDownloadBundle}
-                                  >
-                                    Download Both
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        }
+        <Box sx={{ flexGrow: 1, overflowY: isDesktop ? 'hidden' : 'auto', py: { xs: 2, md: 4 } }}>
+          <Container maxWidth="lg" sx={{ height: '100%' }}>
+            <Box sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: { md: payload ? '1fr 380px' : '1fr', xs: '1fr' }, 
+              gap: 3, 
+              height: '100%', 
+              alignItems: 'start',
+              transition: 'grid-template-columns 0.3s ease'
+            }}>
+              
+              <Box sx={{ height: isDesktop ? 'calc(100vh - 120px)' : 'auto', overflowY: isDesktop ? 'auto' : 'visible', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <Paper sx={{ p: 2 }}>
+                  <Typography variant="overline" color="text.secondary" fontWeight={700}>Type</Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                    {qrTypes.map(t => (
+                      <Button 
+                        key={t.id} 
+                        variant={qrTypeId === t.id ? 'contained' : 'outlined'} 
+                        onClick={() => { setQrTypeId(t.id); setValues(getDefaultValues(t.id)); }}
                       >
-                        {missingRequired.length > 0 ? (
-                          <div className="notice">Fill required fields to generate QR.</div>
-                        ) : payload ? (
-                          <div ref={qrCanvasRef} className="qr-canvas" />
-                        ) : (
-                          <div className="empty">Fill form to generate QR.</div>
-                        )}
-                      </ActionCard>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {activeTab === 'scan' && (
-              <section className="panel">
-                <div className="panel-head">
-                  <div>
-                    <h2>Scan QR Codes</h2>
-                    <p>Scanning tools are coming in the next release.</p>
-                  </div>
-                </div>
-                <ActionCard title="Coming Soon" description="Camera tools are on the way.">
-                  <div className="empty">Scanning will land soon.</div>
-                </ActionCard>
-              </section>
-            )}
-
-            {activeTab === 'history' && (
-              <section className="panel">
-                <div className="panel-head">
-                  <div>
-                    <h2>History</h2>
-                    <p>Recently generated codes on this device.</p>
-                  </div>
-                  <div className="panel-actions">
-                    <span className="muted">{historyItems.length} saved</span>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={historyItems.length === 0}
-                      onClick={clearHistory}
-                    >
-                      Clear history
-                    </button>
-                  </div>
-                </div>
-                {historyItems.length === 0 ? (
-                  <div className="empty-card">
-                    <strong>No saved codes yet.</strong>
-                  </div>
-                ) : (
-                  <div className="history-grid">
-                    {historyItems.map((item) => (
-                      <div key={item.id} className="history-card">
-                        <div className="history-preview">
-                          <img src={item.dataUrl} alt="QR" />
-                        </div>
-                        <div className="history-content">
-                          <p className="history-title">{item.payload.slice(0, 40)}...</p>
-                        </div>
-                      </div>
+                        {t.label}
+                      </Button>
                     ))}
-                  </div>
-                )}
-              </section>
-            )}
-          </section>
-        </div>
-      </main>
+                  </Box>
+                </Paper>
 
-      <footer className="footer">
-        <div className="footer-brand">
-          <strong>QR Studio</strong>
-        </div>
-      </footer>
+                <Paper sx={{ p: 3, flexGrow: 1 }}>
+                  <Typography variant="h6" fontWeight={800} mb={2}>Configuration</Typography>
+                  <Stack spacing={2.5}>
+                    {selectedType.fields.map(f => {
+                      const err = getFieldError(f.id, f.type, values[f.id] || '');
+                      if (f.type === 'select') return (
+                        <TextField key={f.id} select fullWidth size="small" label={f.label} required={f.required} value={values[f.id] || ''} onChange={e => setValues(v => ({...v, [f.id]: e.target.value}))}>
+                          {f.options?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                        </TextField>
+                      );
+                      if (f.type === 'checkbox') return (
+                        <FormControlLabel key={f.id} control={<Checkbox size="small" checked={values[f.id] === 'true'} onChange={e => setValues(prev => ({ ...prev, [f.id]: e.target.checked ? 'true' : 'false' }))} />} label={`${f.label}${f.required ? ' *' : ''}`} />
+                      );
+                      return (
+                        <TextField 
+                          key={f.id} fullWidth size="small" label={f.label} required={!!f.required}
+                          value={values[f.id]} onChange={e => setValues(prev => ({ ...prev, [f.id]: e.target.value }))} 
+                          error={!!err} helperText={err} multiline={f.type === 'textarea'} rows={f.type === 'textarea' ? 3 : 1} 
+                        />
+                      );
+                    })}
+                  </Stack>
+                </Paper>
+              </Box>
+
+              <Fade in={!!payload}>
+                <Box sx={{ height: isDesktop ? 'calc(100vh - 120px)' : 'auto', display: payload ? 'flex' : 'none', flexDirection: 'column', gap: 2 }}>
+                  <Paper sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="overline" color="text.secondary" fontWeight={800}>Live Preview</Typography>
+                    <Box sx={{ my: 2, p: 2, display: 'inline-flex', bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.03)' : '#f8fafc', borderRadius: 4, border: '1px solid', borderColor: 'divider', minHeight: 280, minWidth: 280, alignItems: 'center', justifyContent: 'center' }}>
+                       <div ref={qrCanvasRef} />
+                    </Box>
+                    <Stack direction="row" spacing={1}>
+                      <Button fullWidth variant="contained" onClick={handleCopy}><ContentCopy fontSize="small" /></Button>
+                      <Button fullWidth variant="outlined" onClick={() => qrStylingRef.current?.download({ extension: 'png' })}>PNG</Button>
+                      <Button fullWidth variant="outlined" onClick={() => qrStylingRef.current?.download({ extension: 'svg' })}>SVG</Button>
+                    </Stack>
+                  </Paper>
+
+                  <Paper sx={{ p: 3 }}>
+                    <Typography variant="subtitle2" fontWeight={800} mb={2} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Palette fontSize="small" /> Appearance
+                    </Typography>
+                    <Stack spacing={2}>
+                      <ToggleButtonGroup exclusive value={dotsType} onChange={(_, v) => v && setDotsType(v)} fullWidth size="small">
+                        <ToggleButton value="square">Sq</ToggleButton>
+                        <ToggleButton value="dots">Dots</ToggleButton>
+                        <ToggleButton value="rounded">Rd</ToggleButton>
+                      </ToggleButtonGroup>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <input type="color" value={dotsColor} onChange={(e) => setDotsColor(e.target.value)} style={{ width: 50, height: 32, border: 'none', borderRadius: 6, cursor: 'pointer', background: 'none' }} />
+                        <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>{dotsColor.toUpperCase()}</Typography>
+                      </Stack>
+                    </Stack>
+                  </Paper>
+                </Box>
+              </Fade>
+            </Box>
+          </Container>
+        </Box>
+      </Box>
+
+      <Snackbar open={copySnack} autoHideDuration={2000} onClose={() => setCopySnack(false)}>
+        <Alert severity="success" variant="filled" sx={{ borderRadius: 2 }}>Copied!</Alert>
+      </Snackbar>
       <Analytics />
-    </div>
-  )
+    </ThemeProvider>
+  );
 }
 
-const menuItemStyle: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  padding: '12px 16px',
-  textAlign: 'left',
-  background: 'transparent',
-  border: 'none',
-  cursor: 'pointer',
-  fontSize: '13px',
-  color: 'inherit',
-  transition: 'background 0.2s',
-}
-
-export default App
+export default App;

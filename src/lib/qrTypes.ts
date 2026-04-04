@@ -1,4 +1,4 @@
-import { urlSchemeRegex } from '../regexes'
+import { urlLikeRegex } from '../regexes'
 
 export type QrFieldType =
   | 'text'
@@ -46,7 +46,7 @@ const toIsoDate = (date: string, time?: string) => {
 const normalizeUrl = (value: string) => {
   const trimmed = value.trim()
   if (!trimmed) return ''
-  return urlSchemeRegex.test(trimmed) ? trimmed : `https://${trimmed}`
+  return urlLikeRegex.test(trimmed) ? trimmed : `https://${trimmed}`
 }
 
 export const qrTypes: QrTypeDefinition[] = [
