@@ -29,6 +29,11 @@ npm run dev
 - `npm run preview` - Preview build locally
 - `npm run typecheck` - TypeScript checks
 
+## Contributing & Versioning
+
+- We follow Conventional Commits (enforced by commitlint + husky).
+- Releases follow Semantic Versioning (SemVer).
+
 ## Documentation
 
 - QR payload catalog: `docs/QR_TYPES.md`
