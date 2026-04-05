@@ -276,31 +276,6 @@ export const qrTypes: QrTypeDefinition[] = [
     },
   },
   {
-    id: 'utm',
-    label: 'UTM Link Builder',
-    description: 'Build a URL with UTM tracking parameters.',
-    fields: [
-      { id: 'url', label: 'Website URL', type: 'url', placeholder: 'https://example.com', required: true },
-      { id: 'utm_source', label: 'Campaign Source (utm_source)', type: 'text', placeholder: 'google', required: true },
-      { id: 'utm_medium', label: 'Campaign Medium (utm_medium)', type: 'text', placeholder: 'cpc' },
-      { id: 'utm_campaign', label: 'Campaign Name (utm_campaign)', type: 'text', placeholder: 'spring_sale' },
-      { id: 'utm_term', label: 'Campaign Term (utm_term)', type: 'text', placeholder: 'running+shoes' },
-      { id: 'utm_content', label: 'Campaign Content (utm_content)', type: 'text', placeholder: 'logolink' },
-    ],
-    build: (values) => {
-      const baseUrl = normalizeUrl(values.url || '')
-      if (!baseUrl) return ''
-      const params = [
-        values.utm_source ? `utm_source=${encodeURIComponent(values.utm_source)}` : '',
-        values.utm_medium ? `utm_medium=${encodeURIComponent(values.utm_medium)}` : '',
-        values.utm_campaign ? `utm_campaign=${encodeURIComponent(values.utm_campaign)}` : '',
-        values.utm_term ? `utm_term=${encodeURIComponent(values.utm_term)}` : '',
-        values.utm_content ? `utm_content=${encodeURIComponent(values.utm_content)}` : '',
-      ].filter(Boolean)
-      return params.length > 0 ? `${baseUrl}?${params.join('&')}` : baseUrl
-    },
-  },
-  {
     id: 'appstore',
     label: 'App Store Link',
     description: 'Send users to an app listing.',
