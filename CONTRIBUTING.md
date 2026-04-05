@@ -20,4 +20,20 @@ npm run dev
 - Keep the UI responsive and accessible.
 - Prefer TypeScript-first additions.
 - Update `docs/QR_TYPES.md` if you add a payload.
-- Use clear, consistent commit messages for easier history navigation.
+- Use Conventional Commits (enforced by commitlint + husky).
+- Versioning follows Semantic Versioning (SemVer).
+
+## Conventional commits
+
+We enforce the Conventional Commits spec to keep releases and history clean.
+
+Format:
+```
+type(scope?): short summary
+```
+
+Examples:
+- `feat: add UTM payload type`
+- `fix: handle urls with existing query params`
+- `docs: update roadmap milestones`
+- `chore: bump dependencies`
