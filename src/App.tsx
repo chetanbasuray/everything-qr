@@ -71,7 +71,6 @@ const linearTokens = {
   radii: { lg: 12, md: 8, sm: 6 }
 }
 
-// Helper to map QR Types to Icons
 const getIconForType = (typeId: string) => {
   switch (typeId.toLowerCase()) {
     case 'url': return <Language fontSize="small" />
@@ -177,7 +176,6 @@ function App() {
 
         <Box sx={{ flexGrow: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
           
-          {/* SIDEBAR WITH BORDER TOGGLE */}
           {isDesktop && (
             <Box sx={{ 
                 width: sidebarExpanded ? 240 : 72, 
@@ -191,7 +189,6 @@ function App() {
                 position: 'relative',
                 overflowX: 'hidden'
             }}>
-              {/* Border Toggle Button */}
               <IconButton 
                 size="small"
                 onClick={() => setSidebarExpanded(!sidebarExpanded)}
@@ -216,7 +213,8 @@ function App() {
                   display: 'block', 
                   textTransform: 'uppercase', 
                   opacity: 0.6,
-                  textAlign: sidebarExpanded ? 'left' : 'center'
+                  textAlign: sidebarExpanded ? 'left' : 'center',
+                  minHeight: '18px'
               }}>
                 {sidebarExpanded ? 'QR Type' : ''}
               </Typography>
@@ -261,8 +259,21 @@ function App() {
                 <Stack spacing={3}>
                   {!isDesktop && (
                     <Paper sx={{ p: 2 }}>
-                      <TextField select fullWidth label="QR Type" value={qrTypeId} onChange={(e) => setQrTypeId(e.target.value)}>
-                        {qrTypes.map(t => <MenuItem key={t.id} value={t.id} icon={getIconForType(t.id)}>{t.label}</MenuItem>)}
+                      <TextField 
+                        select 
+                        fullWidth 
+                        label="QR Type" 
+                        value={qrTypeId} 
+                        onChange={(e) => setQrTypeId(e.target.value)}
+                      >
+                        {qrTypes.map(t => (
+                          <MenuItem key={t.id} value={t.id}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              {getIconForType(t.id)}
+                              {t.label}
+                            </Box>
+                          </MenuItem>
+                        ))}
                       </TextField>
                     </Paper>
                   )}
