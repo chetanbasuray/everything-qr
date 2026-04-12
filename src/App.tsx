@@ -1,338 +1,360 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { 
-  Box, CssBaseline, ThemeProvider, createTheme, 
-  Typography, Container, Paper, Button, IconButton, 
-  Stack, TextField, MenuItem, FormControlLabel, 
-  Checkbox, Fade, Snackbar, Alert, Toolbar, AppBar,
-  ToggleButton, ToggleButtonGroup, useMediaQuery, Slider
-} from '@mui/material';
-import { 
-  DarkMode, LightMode, QrCode2, Palette, 
-  ContentCopy, Download 
-} from '@mui/icons-material';
-import QRCodeStyling, { type Options, type DotType } from 'qr-code-styling';
-import { Analytics } from '@vercel/analytics/react';
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Alert,
+  AppBar,
+  Box,
+  Button,
+  Checkbox,
+  Container,
+  CssBaseline,
+  Fade,
+  FormControlLabel,
+  IconButton,
+  MenuItem,
+  Paper,
+  Snackbar,
+  Stack,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Toolbar,
+  Typography,
+  createTheme,
+  useMediaQuery,
+  ThemeProvider,
+  Tooltip,
+} from '@mui/material'
+import {
+  ContentCopy,
+  DarkMode,
+  Download,
+  History,
+  InfoOutlined,
+  LightMode,
+  Palette,
+  QrCode2,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Email,
+  Language,
+  WhatsApp,
+  Phone,
+  Sms,
+  Wifi,
+  ContactPage,
+} from '@mui/icons-material'
+import QRCodeStyling, { type DotType, type Options } from 'qr-code-styling'
+import { Analytics } from '@vercel/analytics/react'
 
-// Using your custom logic and the Shorol-powered regexes
-import { qrTypes, getDefaultValues, buildPayload } from './lib/qrTypes';
-import { urlLikeRegex, emailRegex, phoneRegex } from './regexes';
-import './styles.css';
+import { buildPayload, getDefaultValues, qrTypes } from './lib/qrTypes'
+import { emailRegex, phoneRegex, urlLikeRegex } from './regexes'
+import './styles.css'
+
+type Mode = 'light' | 'dark'
+
+const linearTokens = {
+  colors: {
+    background: '#08090a',
+    panel: '#0c0d0e',
+    surface: '#111214',
+    brand: '#5e6ad2',
+    accent: '#7170ff',
+    borderStandard: 'rgba(255, 255, 255, 0.08)',
+    textPrimary: '#f7f8f8',
+    textSecondary: '#b1b8c0',
+    textTertiary: '#62666d',
+    lightBg: '#fafafa',
+    lightPanel: '#ffffff',
+    lightBorder: '#e6e8eb',
+  },
+  radii: { lg: 12, md: 8, sm: 6 }
+}
+
+const getIconForType = (typeId: string) => {
+  switch (typeId.toLowerCase()) {
+    case 'url': return <Language fontSize="small" />
+    case 'email': return <Email fontSize="small" />
+    case 'whatsapp': return <WhatsApp fontSize="small" />
+    case 'phone': return <Phone fontSize="small" />
+    case 'sms': return <Sms fontSize="small" />
+    case 'wifi': return <Wifi fontSize="small" />
+    case 'vcard': return <ContactPage fontSize="small" />
+    default: return <QrCode2 fontSize="small" />
+  }
+}
 
 function App() {
-  // Initialize mode from localStorage, falling back to 'light'
-  const [mode, setMode] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('qr-studio-theme');
-    return (saved === 'light' || saved === 'dark') ? saved : 'light';
-  });
+  const [mode, setMode] = useState<Mode>(() => {
+    const saved = localStorage.getItem('qr-studio-theme')
+    return saved === 'light' || saved === 'dark' ? saved : 'dark'
+  })
 
-  const [qrTypeId, setQrTypeId] = useState(qrTypes[0].id);
-  const [values, setValues] = useState(() => getDefaultValues(qrTypes[0].id));
-  
-  const [dotsType, setDotsType] = useState<DotType>('rounded');
-  const [dotsColor, setDotsColor] = useState('#10b981'); 
-  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
-  const [logoSize, setLogoSize] = useState(0.25);
-  const [logoMargin, setLogoMargin] = useState(6);
-  const [copySnack, setCopySnack] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true)
+  const [qrTypeId, setQrTypeId] = useState(qrTypes[0].id)
+  const [values, setValues] = useState(() => getDefaultValues(qrTypes[0].id))
+  const [dotsType, setDotsType] = useState<DotType>('rounded')
+  const [dotsColor, setDotsColor] = useState(linearTokens.colors.accent)
+  const [copySnack, setCopySnack] = useState(false)
 
-  const qrCanvasRef = useRef<HTMLDivElement>(null);
-  const qrStylingRef = useRef<QRCodeStyling | null>(null);
-  const logoInputRef = useRef<HTMLInputElement | null>(null);
-  const isDesktop = useMediaQuery('(min-width:900px)');
-
-  // Sync theme with localStorage and document attribute
-  useEffect(() => {
-    localStorage.setItem('qr-studio-theme', mode);
-    document.documentElement.setAttribute('data-theme', mode);
-  }, [mode]);
+  const qrCanvasRef = useRef<HTMLDivElement>(null)
+  const qrStylingRef = useRef<QRCodeStyling | null>(null)
+  const isDesktop = useMediaQuery('(min-width:1100px)')
 
   useEffect(() => {
-    if (qrCanvasRef.current) {
-      qrCanvasRef.current.innerHTML = '';
-      qrStylingRef.current = null;
-    }
-  }, [qrTypeId]);
+    localStorage.setItem('qr-studio-theme', mode)
+    document.documentElement.setAttribute('data-theme', mode)
+  }, [mode])
 
   const theme = useMemo(() => createTheme({
     palette: {
       mode,
-      primary: { main: mode === 'light' ? '#10b981' : '#34d399' },
+      primary: { main: linearTokens.colors.brand },
       background: { 
-        default: mode === 'light' ? '#f8fafc' : '#020617',
-        paper: mode === 'light' ? '#ffffff' : '#0f172a' 
+        default: mode === 'dark' ? linearTokens.colors.background : linearTokens.colors.lightBg, 
+        paper: mode === 'dark' ? linearTokens.colors.panel : linearTokens.colors.lightPanel 
       },
       text: {
-        primary: mode === 'light' ? '#0f172a' : '#f1f5f9'
-      }
+        primary: mode === 'dark' ? linearTokens.colors.textPrimary : '#1a1a1a',
+        secondary: mode === 'dark' ? linearTokens.colors.textSecondary : '#4a4a4a',
+      },
+      divider: mode === 'dark' ? linearTokens.colors.borderStandard : linearTokens.colors.lightBorder,
     },
-    shape: { borderRadius: 12 },
-    typography: { fontFamily: "'Inter', sans-serif" },
+    typography: { fontFamily: 'Inter, sans-serif' },
     components: {
       MuiPaper: {
         styleOverrides: {
           root: {
             backgroundImage: 'none',
-            border: `1px solid ${mode === 'light' ? 'rgba(15, 23, 42, 0.08)' : '#1e293b'}`,
+            backgroundColor: mode === 'dark' ? 'rgba(13, 14, 15, 0.8)' : '#ffffff',
+            backdropFilter: mode === 'dark' ? 'blur(12px)' : 'none',
+            border: `1px solid ${mode === 'dark' ? linearTokens.colors.borderStandard : linearTokens.colors.lightBorder}`,
           }
         }
-      },
-      MuiButton: {
-        defaultProps: { disableElevation: true },
-        styleOverrides: {
-          root: { textTransform: 'none', fontWeight: 600, borderRadius: '12px' }
-        }
       }
     }
-  }), [mode]);
+  }), [mode])
 
-  const selectedType = useMemo(() => qrTypes.find(t => t.id === qrTypeId)!, [qrTypeId]);
-
-  const getFieldError = (fieldId: string, type: string, value: string) => {
-    if (!value) return '';
-    const trimmed = value.trim();
-    if (type === 'url' && !urlLikeRegex.test(trimmed)) return 'Invalid URL';
-    if (type === 'email' && !emailRegex.test(trimmed)) return 'Invalid Email';
-    if (type === 'tel' && !phoneRegex.test(trimmed)) return 'Invalid Phone';
-    return '';
-  };
-
-  const payload = useMemo(() => {
-    const missingReq = selectedType.fields.some(f => f.required && !String(values[f.id] || '').trim());
-    const hasInvalid = selectedType.fields.some(f => 
-      getFieldError(f.id, f.type, values[f.id] || '') !== ''
-    );
-    if (missingReq || hasInvalid) return '';
-    return buildPayload(qrTypeId, values);
-  }, [qrTypeId, values, selectedType]);
+  const selectedType = useMemo(() => qrTypes.find((t) => t.id === qrTypeId)!, [qrTypeId])
+  const payload = useMemo(() => buildPayload(qrTypeId, values), [qrTypeId, values])
 
   useEffect(() => {
-    if (!payload) {
-      if (qrCanvasRef.current) qrCanvasRef.current.innerHTML = '';
-      qrStylingRef.current = null;
-      return;
-    }
+    if (!payload) return
     const options: Partial<Options> = {
-      width: 260,
-      height: 260,
-      data: payload,
+      width: 280, height: 280, data: payload,
       dotsOptions: { color: dotsColor, type: dotsType },
-      backgroundOptions: { color: 'transparent' },
-    };
-    if (logoDataUrl) {
-      options.image = logoDataUrl;
-      options.imageOptions = {
-        crossOrigin: 'anonymous',
-        margin: logoMargin,
-        imageSize: logoSize,
-        hideBackgroundDots: true,
-      };
+      backgroundOptions: { color: '#ffffff' },
+      cornersSquareOptions: { type: 'extra-rounded', color: dotsColor },
     }
     if (!qrStylingRef.current) {
-      qrStylingRef.current = new QRCodeStyling(options);
-      if (qrCanvasRef.current) {
-        qrCanvasRef.current.innerHTML = '';
-        qrStylingRef.current.append(qrCanvasRef.current);
-      }
+      qrStylingRef.current = new QRCodeStyling(options)
+      if (qrCanvasRef.current) qrStylingRef.current.append(qrCanvasRef.current)
     } else {
-      qrStylingRef.current.update(options);
+      qrStylingRef.current.update(options)
     }
-  }, [payload, dotsColor, dotsType, logoDataUrl, logoSize, logoMargin]);
-
-  const handleCopy = async () => {
-    if (!qrStylingRef.current || !payload) return;
-    try {
-      const blob = await qrStylingRef.current.getRawData('png');
-      if (blob instanceof Blob) {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        setCopySnack(true);
-      }
-    } catch (err) { console.error(err); }
-  };
-
-  const handleLogoUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : null;
-      setLogoDataUrl(result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleLogoRemove = () => {
-    setLogoDataUrl(null);
-  };
+  }, [payload, dotsColor, dotsType])
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Toolbar>
-            <QrCode2 sx={{ mr: 2, color: 'primary.main', fontSize: 32 }} />
-            <Typography variant="h6" color="text.primary" fontWeight={900}>QR STUDIO</Typography>
+      {mode === 'dark' && <Box className="bg-aura" />}
+
+      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1, bgcolor: 'background.default' }}>
+        <AppBar position="static" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', backdropFilter: 'blur(8px)' }}>
+          <Toolbar variant="dense">
+            <QrCode2 sx={{ mr: 1, color: linearTokens.colors.accent }} />
+            <Typography variant="subtitle1" fontWeight={600} color="text.primary">QR STUDIO</Typography>
             <Box sx={{ flexGrow: 1 }} />
-            <IconButton onClick={() => setMode(m => m === 'light' ? 'dark' : 'light')}>
-              {mode === 'light' ? <DarkMode /> : <LightMode sx={{ color: '#facc15' }} />}
-            </IconButton>
+            <Stack direction="row" spacing={1}>
+              <Button size="small" sx={{ color: 'text.secondary' }} startIcon={<History />}>History</Button>
+              <IconButton size="small" onClick={() => setMode(m => m === 'light' ? 'dark' : 'light')} color="inherit">
+                {mode === 'light' ? <DarkMode fontSize="small" /> : <LightMode fontSize="small" sx={{ color: '#ffb300' }} />}
+              </IconButton>
+            </Stack>
           </Toolbar>
         </AppBar>
 
-        <Box sx={{ flexGrow: 1, overflowY: isDesktop ? 'hidden' : 'auto', py: { xs: 2, md: 4 } }}>
-          <Container maxWidth="lg" sx={{ height: '100%' }}>
+        <Box sx={{ flexGrow: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+          
+          {isDesktop && (
             <Box sx={{ 
-              display: 'grid', 
-              gridTemplateColumns: { md: payload ? '1fr 380px' : '1fr', xs: '1fr' }, 
-              gap: 3, 
-              height: '100%', 
-              alignItems: 'start',
-              transition: 'grid-template-columns 0.3s ease'
+                width: sidebarExpanded ? 240 : 72, 
+                transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                borderRight: 1, 
+                borderColor: 'divider', 
+                p: 2, 
+                bgcolor: mode === 'dark' ? 'rgba(0,0,0,0.2)' : '#f5f5f5',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                overflowX: 'hidden'
             }}>
-              
-              <Box sx={{ height: isDesktop ? 'calc(100vh - 120px)' : 'auto', overflowY: isDesktop ? 'auto' : 'visible', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <Paper sx={{ p: 2 }}>
-                  <Typography variant="overline" color="text.secondary" fontWeight={700}>Type</Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                    {qrTypes.map(t => (
-                      <Button 
-                        key={t.id} 
-                        variant={qrTypeId === t.id ? 'contained' : 'outlined'} 
-                        onClick={() => { setQrTypeId(t.id); setValues(getDefaultValues(t.id)); }}
+              <IconButton 
+                size="small"
+                onClick={() => setSidebarExpanded(!sidebarExpanded)}
+                sx={{
+                  position: 'absolute',
+                  right: -12,
+                  top: 24,
+                  width: 24,
+                  height: 24,
+                  bgcolor: 'background.paper',
+                  border: 1,
+                  borderColor: 'divider',
+                  zIndex: 2,
+                  '&:hover': { bgcolor: 'background.paper', borderColor: 'primary.main' }
+                }}
+              >
+                {sidebarExpanded ? <ChevronLeft sx={{ fontSize: 16 }} /> : <ChevronRight sx={{ fontSize: 16 }} />}
+              </IconButton>
+
+              <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ 
+                  mb: 2, 
+                  display: 'block', 
+                  textTransform: 'uppercase', 
+                  opacity: 0.6,
+                  textAlign: sidebarExpanded ? 'left' : 'center',
+                  minHeight: '18px'
+              }}>
+                {sidebarExpanded ? 'QR Type' : ''}
+              </Typography>
+
+              <Stack spacing={0.5}>
+                {qrTypes.map((t) => {
+                  const isSelected = qrTypeId === t.id;
+                  const button = (
+                    <Button
+                      key={t.id}
+                      fullWidth
+                      onClick={() => { setQrTypeId(t.id); setValues(getDefaultValues(t.id)); }}
+                      sx={{
+                        justifyContent: sidebarExpanded ? 'flex-start' : 'center',
+                        minWidth: 0,
+                        px: sidebarExpanded ? 1.5 : 0,
+                        py: 1,
+                        color: isSelected ? 'primary.main' : 'text.secondary',
+                        bgcolor: isSelected ? (mode === 'dark' ? 'rgba(94, 106, 210, 0.1)' : 'rgba(94, 106, 210, 0.05)') : 'transparent',
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' }
+                      }}
+                    >
+                      {getIconForType(t.id)}
+                      {sidebarExpanded && <Typography variant="body2" sx={{ ml: 1.5, fontWeight: isSelected ? 600 : 400 }}>{t.label}</Typography>}
+                    </Button>
+                  );
+
+                  return sidebarExpanded ? button : (
+                    <Tooltip key={t.id} title={t.label} placement="right" arrow>
+                      {button}
+                    </Tooltip>
+                  );
+                })}
+              </Stack>
+            </Box>
+          )}
+
+          <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+            <Container maxWidth="xl" sx={{ py: 4, flexGrow: 1 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { lg: '1fr 380px', xs: '1fr' }, gap: 4 }}>
+                
+                <Stack spacing={3}>
+                  {!isDesktop && (
+                    <Paper sx={{ p: 2 }}>
+                      <TextField 
+                        select 
+                        fullWidth 
+                        label="QR Type" 
+                        value={qrTypeId} 
+                        onChange={(e) => setQrTypeId(e.target.value)}
                       >
-                        {t.label}
-                      </Button>
-                    ))}
-                  </Box>
-                </Paper>
-
-                <Paper sx={{ p: 3, flexGrow: 1 }}>
-                  <Typography variant="h6" fontWeight={800} mb={2}>Configuration</Typography>
-                  <Stack spacing={2.5}>
-                    {selectedType.fields.map(f => {
-                      const err = getFieldError(f.id, f.type, values[f.id] || '');
-                      if (f.type === 'select') return (
-                        <TextField key={f.id} select fullWidth size="small" label={f.label} required={f.required} value={values[f.id] || ''} onChange={e => setValues(v => ({...v, [f.id]: e.target.value}))}>
-                          {f.options?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-                        </TextField>
-                      );
-                      if (f.type === 'checkbox') return (
-                        <FormControlLabel key={f.id} control={<Checkbox size="small" checked={values[f.id] === 'true'} onChange={e => setValues(prev => ({ ...prev, [f.id]: e.target.checked ? 'true' : 'false' }))} />} label={`${f.label}${f.required ? ' *' : ''}`} />
-                      );
-                      return (
-                        <TextField 
-                          key={f.id} fullWidth size="small" label={f.label} required={!!f.required}
-                          value={values[f.id]} onChange={e => setValues(prev => ({ ...prev, [f.id]: e.target.value }))} 
-                          error={!!err} helperText={err} multiline={f.type === 'textarea'} rows={f.type === 'textarea' ? 3 : 1} 
+                        {qrTypes.map(t => (
+                          <MenuItem key={t.id} value={t.id}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              {getIconForType(t.id)}
+                              {t.label}
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Paper>
+                  )}
+                  
+                  <Paper sx={{ p: 4, minHeight: 400 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
+                      <Settings fontSize="small" sx={{ color: 'text.secondary', opacity: 0.5 }} />
+                      <Typography variant="h5" fontWeight={600}>Configuration</Typography>
+                    </Box>
+                    <Stack spacing={3}>
+                      {selectedType.fields.map((f) => (
+                        <TextField
+                          key={f.id}
+                          fullWidth
+                          label={f.label}
+                          value={values[f.id] || ''}
+                          multiline={f.type === 'textarea'}
+                          rows={f.type === 'textarea' ? 5 : 1}
+                          onChange={(e) => setValues(v => ({ ...v, [f.id]: e.target.value }))}
+                          helperText={f.required ? "Required field" : "Optional"}
                         />
-                      );
-                    })}
-                  </Stack>
-                </Paper>
-              </Box>
+                      ))}
+                    </Stack>
+                  </Paper>
+                </Stack>
 
-              <Fade in={!!payload}>
-                <Box sx={{ height: isDesktop ? 'calc(100vh - 120px)' : 'auto', display: payload ? 'flex' : 'none', flexDirection: 'column', gap: 2 }}>
-                  <Paper sx={{ p: 3, textAlign: 'center' }}>
-                    <Typography variant="overline" color="text.secondary" fontWeight={800}>Live Preview</Typography>
-                    <Box sx={{ my: 2, p: 2, display: 'inline-flex', bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.03)' : '#f8fafc', borderRadius: 4, border: '1px solid', borderColor: 'divider', minHeight: 280, minWidth: 280, alignItems: 'center', justifyContent: 'center' }}>
-                       <div ref={qrCanvasRef} />
+                <Stack spacing={3}>
+                  <Paper sx={{ p: 3, textAlign: 'center', border: '2px solid', borderColor: 'primary.main' }}>
+                    <Typography variant="overline" color="primary.main" fontWeight={700}>Live Preview</Typography>
+                    <Box sx={{
+                      my: 3, p: 2, bgcolor: '#fff', display: 'inline-flex',
+                      borderRadius: 4, boxShadow: mode === 'dark' ? '0 20px 50px rgba(0,0,0,0.5)' : '0 10px 30px rgba(0,0,0,0.1)',
+                    }}>
+                      <div ref={qrCanvasRef} />
                     </Box>
                     <Stack direction="row" spacing={1}>
-                      <Button fullWidth variant="contained" onClick={handleCopy}><ContentCopy fontSize="small" /></Button>
+                      <Button fullWidth variant="contained" onClick={() => {}} startIcon={<ContentCopy />}>Copy</Button>
                       <Button fullWidth variant="outlined" onClick={() => qrStylingRef.current?.download({ extension: 'png' })}>PNG</Button>
-                      <Button fullWidth variant="outlined" onClick={() => qrStylingRef.current?.download({ extension: 'svg' })}>SVG</Button>
                     </Stack>
                   </Paper>
 
                   <Paper sx={{ p: 3 }}>
-                    <Typography variant="subtitle2" fontWeight={800} mb={2} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="subtitle2" mb={2} display="flex" alignItems="center" gap={1} fontWeight={600}>
                       <Palette fontSize="small" /> Appearance
                     </Typography>
-                    <Stack spacing={2}>
+                    <Stack spacing={2.5}>
                       <ToggleButtonGroup exclusive value={dotsType} onChange={(_, v) => v && setDotsType(v)} fullWidth size="small">
-                        <ToggleButton value="square">Sq</ToggleButton>
+                        <ToggleButton value="square">Square</ToggleButton>
                         <ToggleButton value="dots">Dots</ToggleButton>
-                        <ToggleButton value="rounded">Rd</ToggleButton>
+                        <ToggleButton value="rounded">Rounded</ToggleButton>
                       </ToggleButtonGroup>
-                      <Stack direction="row" spacing={2} alignItems="center">
-                        <input type="color" value={dotsColor} onChange={(e) => setDotsColor(e.target.value)} style={{ width: 50, height: 32, border: 'none', borderRadius: 6, cursor: 'pointer', background: 'none' }} />
-                        <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>{dotsColor.toUpperCase()}</Typography>
-                      </Stack>
-                      <Box>
-                        <Typography variant="overline" color="text.secondary" fontWeight={700}>Logo</Typography>
-                        <Stack spacing={1} mt={1}>
-                          <input
-                            ref={logoInputRef}
-                            type="file"
-                            accept="image/png,image/svg+xml,image/webp"
-                            hidden
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleLogoUpload(file);
-                            }}
-                          />
-                          <Stack direction="row" spacing={1}>
-                            <Button variant="outlined" fullWidth onClick={() => logoInputRef.current?.click()}>
-                              Upload Logo
-                            </Button>
-                            {logoDataUrl ? (
-                              <Button variant="text" color="error" onClick={handleLogoRemove}>
-                                Remove
-                              </Button>
-                            ) : null}
-                          </Stack>
-                          {logoDataUrl ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <Box sx={{ width: 54, height: 54, borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'grid', placeItems: 'center', bgcolor: 'background.default' }}>
-                                <img src={logoDataUrl} alt="Logo preview" style={{ maxWidth: 40, maxHeight: 40 }} />
-                              </Box>
-                              <Typography variant="caption" color="text.secondary">
-                                PNG / SVG / WEBP supported
-                              </Typography>
-                            </Box>
-                          ) : (
-                            <Typography variant="caption" color="text.secondary">
-                              PNG / SVG / WEBP supported
-                            </Typography>
-                          )}
-                          <Box>
-                            <Typography variant="caption" color="text.secondary">Logo size</Typography>
-                            <Slider
-                              size="small"
-                              value={logoSize}
-                              min={0.15}
-                              max={0.4}
-                              step={0.01}
-                              onChange={(_, v) => setLogoSize(v as number)}
-                            />
-                          </Box>
-                          <Box>
-                            <Typography variant="caption" color="text.secondary">Safe-zone margin</Typography>
-                            <Slider
-                              size="small"
-                              value={logoMargin}
-                              min={0}
-                              max={16}
-                              step={1}
-                              onChange={(_, v) => setLogoMargin(v as number)}
-                            />
-                          </Box>
+                      <Box sx={{ p: 2, borderRadius: 2, bgcolor: mode === 'dark' ? 'rgba(0,0,0,0.3)' : '#f9f9f9', border: '1px solid', borderColor: 'divider' }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Typography variant="body2" color="text.secondary">Brand Color</Typography>
+                          <input type="color" value={dotsColor} onChange={(e) => setDotsColor(e.target.value)} style={{ cursor: 'pointer', width: 30, height: 30, border: 'none', background: 'none' }} />
                         </Stack>
                       </Box>
                     </Stack>
                   </Paper>
-                </Box>
-              </Fade>
+                </Stack>
+              </Box>
+            </Container>
+
+            <Box component="footer" sx={{ py: 3, px: 2, mt: 'auto', borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ opacity: 0.7 }}>
+                <InfoOutlined fontSize="inherit" sx={{ color: 'text.secondary' }} />
+                <Typography variant="caption" color="text.secondary">All QR codes generated are private.</Typography>
+              </Stack>
+              <a href="https://github.com/VoltAgent/awesome-design-md" target="_blank" className="design-credit">
+                🎨 Design by Linear via awesome-design-md
+              </a>
             </Box>
-          </Container>
+          </Box>
         </Box>
       </Box>
-
       <Snackbar open={copySnack} autoHideDuration={2000} onClose={() => setCopySnack(false)}>
-        <Alert severity="success" variant="filled" sx={{ borderRadius: 2 }}>Copied!</Alert>
+        <Alert severity="success" sx={{ width: '100%' }}>QR Code copied!</Alert>
       </Snackbar>
       <Analytics />
     </ThemeProvider>
-  );
+  )
 }
 
-export default App;
+export default App
