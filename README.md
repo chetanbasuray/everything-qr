@@ -46,3 +46,7 @@ This project is intended to deploy on Vercel after GitHub CI checks pass. See `d
 ## URL
 
 Official URL: `qrstudio.simplifymylife.app`
+
+## Design
+
+🎨 **Design Credit**: The visual identity of this project is powered by [awesome-design-md](https://github.com/VoltAgent/awesome-design-md) — a collection of AI-ready design systems.
