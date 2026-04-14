@@ -332,7 +332,6 @@ function App() {
                         <Button variant="contained" onClick={handleCopy} sx={{ minWidth: 'fit-content' }}><ContentCopy /></Button>
                       </Tooltip>
                       <Button fullWidth variant="outlined" onClick={() => qrStylingRef.current?.download({ extension: 'png' })}>PNG</Button>
-                      <Button fullWidth variant="outlined" onClick={() => qrStylingRef.current?.download({ extension: 'svg' })}>SVG</Button>
                     </Stack>
                   </Paper>
 
