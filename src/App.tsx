@@ -137,7 +137,25 @@ function App() {
 
   const selectedType = useMemo(() => qrTypes.find((t) => t.id === qrTypeId)!, [qrTypeId])
   const payload = useMemo(() => buildPayload(qrTypeId, values), [qrTypeId, values])
+  const handleCopy = async () => {
+  try {
+    // Get the canvas element from the container
+    const canvas = qrCanvasRef.current?.querySelector('canvas');
+    if (!canvas) throw new Error('Canvas not found');
 
+    // Convert canvas to Blob
+    canvas.toBlob(async (blob) => {
+      if (blob) {
+        const item = new ClipboardItem({ 'image/png': blob });
+        await navigator.clipboard.write([item]);
+        setCopySnack(true); // Trigger your existing snackbar
+      }
+    }, 'image/png');
+  } catch (err) {
+    console.error('Failed to copy QR code: ', err);
+    // Optional: Add an error snackbar here
+  }
+  };
   useEffect(() => {
     if (!payload) return
     const options: Partial<Options> = {
@@ -310,8 +328,11 @@ function App() {
                       <div ref={qrCanvasRef} />
                     </Box>
                     <Stack direction="row" spacing={1}>
-                      <Button fullWidth variant="contained" onClick={() => {}} startIcon={<ContentCopy />}>Copy</Button>
+                      <Tooltip title="Copy to Clipboard">
+                        <Button variant="contained" onClick={handleCopy} sx={{ minWidth: 'fit-content' }}><ContentCopy /></Button>
+                      </Tooltip>
                       <Button fullWidth variant="outlined" onClick={() => qrStylingRef.current?.download({ extension: 'png' })}>PNG</Button>
+                      <Button fullWidth variant="outlined" onClick={() => qrStylingRef.current?.download({ extension: 'svg' })}>SVG</Button>
                     </Stack>
                   </Paper>
 
